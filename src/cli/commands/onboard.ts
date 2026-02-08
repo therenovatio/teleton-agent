@@ -163,11 +163,10 @@ ${blue}  ┌──────────────────────�
     message: "Enable optional modules (Space to toggle, Enter to confirm)",
     options: [
       { value: "casino", label: "Casino", hint: "Slot machine & dice games with TON bets" },
-      { value: "deals", label: "Deals", hint: "Secure gift/TON trading with inline buttons" },
       {
-        value: "market",
-        label: "Gifts Market Data",
-        hint: "Scrape gift floor prices (requires Chromium)",
+        value: "deals",
+        label: "Deals & Market",
+        hint: "Gift/TON trading + floor price scraping (requires Chromium)",
       },
     ],
     required: false,
@@ -175,7 +174,7 @@ ${blue}  ┌──────────────────────�
 
   const casinoEnabled = enabledModules.includes("casino");
   const dealsEnabled = enabledModules.includes("deals");
-  const marketEnabled = enabledModules.includes("market");
+  const marketEnabled = dealsEnabled; // Market data is required for deals
 
   // AI Provider selection
   const providers = getSupportedProviders();
