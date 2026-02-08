@@ -1,6 +1,6 @@
 {
   "name": "teleton",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Personal AI Agent for Telegram",
   "author": "ZKProof (https://t.me/zkproof)",
   "license": "MIT",
@@ -68,6 +68,8 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@ston-fi/api": "^0.30.0",
+    "@ston-fi/sdk": "^2.7.0",
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
