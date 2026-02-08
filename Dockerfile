@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy dependency files first (layer caching)
 COPY package.json package-lock.json ./
+COPY scripts/ scripts/
 
 # Install all deps (including devDependencies for build)
 RUN npm ci
