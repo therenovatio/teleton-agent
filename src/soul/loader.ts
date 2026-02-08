@@ -203,12 +203,10 @@ You have a personal workspace at \`~/.teleton/workspace/\` where you can store a
     parts.push(`\n## ⚠️ Memory Flush Warning
 
 Your conversation context is approaching the limit and may be compacted soon.
-If there's anything important from this session you want to remember long-term, use the **memory_write** tool NOW:
+**Always respond to the user's message first.** Then, if there's anything important worth preserving, consider using \`memory_write\` alongside your response:
 
-- Use \`target: "persistent"\` for facts, lessons, contacts, decisions you want to keep forever
-- Use \`target: "daily"\` for session notes, events, temporary context
-
-After compaction, earlier messages may be summarized. Save important details before they're lost!
+- \`target: "persistent"\` for facts, lessons, contacts, decisions
+- \`target: "daily"\` for session notes, events, temporary context
 `);
   }
 

@@ -370,6 +370,7 @@ export class AgentRuntime {
       let rateLimitRetries = 0; // Track rate limit retry attempts
       let finalResponse: ChatResponse | null = null;
       const totalToolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
+      const accumulatedTexts: string[] = []; // Capture text from ALL iterations
 
       while (iteration < maxIterations) {
         iteration++;
@@ -456,6 +457,11 @@ export class AgentRuntime {
             console.error(`🚨 API error: ${errorMsg}`);
             throw new Error(`API error: ${errorMsg || "Unknown error"}`);
           }
+        }
+
+        // Capture text from this iteration (even if tool calls follow)
+        if (response.text) {
+          accumulatedTexts.push(response.text);
         }
 
         // Extract tool calls from response
@@ -591,8 +597,8 @@ export class AgentRuntime {
         );
       }
 
-      // Handle empty response
-      let content = response.text;
+      // Handle empty response - prefer accumulated text from all iterations
+      let content = accumulatedTexts.join("\n").trim() || response.text;
 
       // Tools that send content to Telegram - no text response needed
       const telegramSendTools = [
