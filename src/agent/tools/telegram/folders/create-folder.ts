@@ -86,8 +86,10 @@ export const telegramCreateFolderExecutor: ToolExecutor<CreateFolderParams> = as
     // GetDialogFilters returns messages.DialogFilters { filters: [] } (not a plain array)
     const result = await gramJsClient.invoke(new Api.messages.GetDialogFilters());
     const filters: any[] = Array.isArray(result) ? result : ((result as any).filters ?? []);
-    const maxId = Math.max(0, ...filters.map((f: any) => f.id || 0));
-    const newId = maxId + 1;
+    // Only consider DialogFilter and DialogFilterChatlist (skip DialogFilterDefault which has no id)
+    const usedIds = filters.filter((f: any) => typeof f.id === "number").map((f: any) => f.id);
+    // Telegram reserves IDs 0-1; valid custom folder IDs start at 2
+    const newId = usedIds.length > 0 ? Math.max(...usedIds) + 1 : 2;
 
     // Create new folder (using any to bypass strict type checking)
     const filterData: any = {
