@@ -149,14 +149,24 @@ export async function getWalletBalance(address: string): Promise<{
   }
 }
 
+/** Cached TON price (30s TTL) */
+const TON_PRICE_CACHE_TTL_MS = 30_000;
+let _tonPriceCache: { usd: number; source: string; timestamp: number } | null = null;
+
 /**
  * Get TON/USD price from TonAPI (primary) with CoinGecko fallback
+ * Results cached for 30s to reduce API calls
  */
 export async function getTonPrice(): Promise<{
   usd: number;
   source: string;
   timestamp: number;
 } | null> {
+  // Return cached value if fresh
+  if (_tonPriceCache && Date.now() - _tonPriceCache.timestamp < TON_PRICE_CACHE_TTL_MS) {
+    return _tonPriceCache;
+  }
+
   // Primary: TonAPI /v2/rates (uses configured API key if available)
   try {
     const response = await tonapiFetch(`/rates?tokens=ton&currencies=usd`);
@@ -165,7 +175,8 @@ export async function getTonPrice(): Promise<{
       const data = await response.json();
       const price = data?.rates?.TON?.prices?.USD;
       if (typeof price === "number" && price > 0) {
-        return { usd: price, source: "TonAPI", timestamp: Date.now() };
+        _tonPriceCache = { usd: price, source: "TonAPI", timestamp: Date.now() };
+        return _tonPriceCache;
       }
     }
   } catch {
@@ -185,7 +196,8 @@ export async function getTonPrice(): Promise<{
     const data = await response.json();
     const price = data["the-open-network"]?.usd;
     if (typeof price === "number" && price > 0) {
-      return { usd: price, source: "CoinGecko", timestamp: Date.now() };
+      _tonPriceCache = { usd: price, source: "CoinGecko", timestamp: Date.now() };
+      return _tonPriceCache;
     }
   } catch (error) {
     console.error("Failed to get TON price:", error);
