@@ -3,6 +3,8 @@
  * Formats messages with rich metadata: channel, sender, elapsed time, timestamp
  */
 
+import { sanitizeForPrompt } from "../utils/sanitize.js";
+
 export interface EnvelopeParams {
   channel: string;
   senderId?: string;
@@ -75,11 +77,11 @@ function buildSenderLabel(params: EnvelopeParams): string {
   const parts: string[] = [];
 
   if (params.senderName) {
-    parts.push(params.senderName);
+    parts.push(sanitizeForPrompt(params.senderName));
   }
 
   if (params.senderUsername) {
-    parts.push(`@${params.senderUsername}`);
+    parts.push(`@${sanitizeForPrompt(params.senderUsername)}`);
   }
 
   if (parts.length > 0) {
@@ -127,8 +129,11 @@ export function formatMessageEnvelope(params: EnvelopeParams): string {
   // Build envelope header
   const header = `[${parts.join(" ")}]`;
 
-  // For groups, prepend sender to body
-  let body = params.isGroup ? `${senderLabel}: ${params.body}` : params.body;
+  // Strip boundary tags from user content to prevent tag injection, then wrap
+  const safeBody = params.body.replace(/<\/?user_message>/gi, "");
+  let body = params.isGroup
+    ? `${senderLabel}: <user_message>${safeBody}</user_message>`
+    : `<user_message>${safeBody}</user_message>`;
 
   // Add media indicator if present (with message ID for easy download)
   if (params.hasMedia && params.mediaType) {

@@ -42,6 +42,14 @@ export interface ToolResult {
 export type ToolCategory = "data-bearing" | "action";
 
 /**
+ * Tool scope for context-based filtering.
+ * - "always": included in both DMs and groups (default)
+ * - "dm-only": excluded from group chats (financial, private tools)
+ * - "group-only": excluded from DMs (moderation tools)
+ */
+export type ToolScope = "always" | "dm-only" | "group-only";
+
+/**
  * Tool definition compatible with pi-ai
  */
 export interface Tool<TParameters extends TSchema = TSchema> {

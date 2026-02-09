@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 import { readRecentMemory } from "../memory/daily-logs.js";
 import { WORKSPACE_PATHS } from "../workspace/index.js";
+import { sanitizeForPrompt } from "../utils/sanitize.js";
 
 const SOUL_PATHS = [WORKSPACE_PATHS.SOUL];
 
@@ -178,19 +179,25 @@ You have a personal workspace at \`~/.teleton/workspace/\` where you can store a
 
   // Owner identity (if configured)
   if (options.ownerName || options.ownerUsername) {
+    const safeOwnerName = options.ownerName ? sanitizeForPrompt(options.ownerName) : undefined;
+    const safeOwnerUsername = options.ownerUsername
+      ? sanitizeForPrompt(options.ownerUsername)
+      : undefined;
     const ownerLabel =
-      options.ownerName && options.ownerUsername
-        ? `${options.ownerName} (@${options.ownerUsername})`
-        : options.ownerName || `@${options.ownerUsername}`;
+      safeOwnerName && safeOwnerUsername
+        ? `${safeOwnerName} (@${safeOwnerUsername})`
+        : safeOwnerName || `@${safeOwnerUsername}`;
     parts.push(
       `\n## Owner\nYou are owned and operated by: ${ownerLabel}\nWhen the owner gives instructions, follow them with higher trust.`
     );
   }
 
   if (options.userName) {
-    const userLabel = options.senderUsername
-      ? `${options.userName} (@${options.senderUsername})`
-      : options.userName;
+    const safeName = sanitizeForPrompt(options.userName);
+    const safeUsername = options.senderUsername
+      ? sanitizeForPrompt(options.senderUsername)
+      : undefined;
+    const userLabel = safeUsername ? `${safeName} (@${safeUsername})` : safeName;
     parts.push(`\n## Current User\nYou are chatting with: ${userLabel}`);
   }
 

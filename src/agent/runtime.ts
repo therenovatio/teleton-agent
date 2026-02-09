@@ -364,11 +364,11 @@ export class AgentRuntime {
       // This ensures user messages are saved even if the agent crashes mid-loop
       appendToTranscript(session.sessionId, userMsg);
 
-      // Get tools from registry, respecting provider tool limits
+      // Get tools from registry, filtered by context (DM vs group) and provider limits
       const providerMeta = getProviderMetadata(
         (this.config.agent.provider || "anthropic") as SupportedProvider
       );
-      const tools = this.toolRegistry?.getForProvider(providerMeta.toolLimit);
+      const tools = this.toolRegistry?.getForContext(isGroup ?? false, providerMeta.toolLimit);
 
       // AGENTIC LOOP: Keep calling LLM until it returns text without tools
       const maxIterations = this.config.agent.max_agentic_iterations || 5;

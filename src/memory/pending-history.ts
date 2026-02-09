@@ -1,5 +1,6 @@
 import type { TelegramMessage } from "../telegram/bridge.js";
 import { PENDING_HISTORY_MAX_PER_CHAT, PENDING_HISTORY_MAX_AGE_MS } from "../constants/limits.js";
+import { sanitizeForPrompt } from "../utils/sanitize.js";
 
 /**
  * Represents a pending message in a group chat
@@ -63,19 +64,20 @@ export class PendingHistory {
       return null;
     }
 
-    // Format pending messages with sender labels (Name (@username) format)
+    // Format pending messages with sanitized sender labels and boundary tags
     const lines = pending.map((msg) => {
       let senderLabel: string;
       if (msg.senderName && msg.senderUsername) {
-        senderLabel = `${msg.senderName} (@${msg.senderUsername})`;
+        senderLabel = `${sanitizeForPrompt(msg.senderName)} (@${sanitizeForPrompt(msg.senderUsername)})`;
       } else if (msg.senderName) {
-        senderLabel = msg.senderName;
+        senderLabel = sanitizeForPrompt(msg.senderName);
       } else if (msg.senderUsername) {
-        senderLabel = `@${msg.senderUsername}`;
+        senderLabel = `@${sanitizeForPrompt(msg.senderUsername)}`;
       } else {
         senderLabel = `User:${msg.senderId}`;
       }
-      return `${senderLabel}: ${msg.text}`;
+      const safeText = msg.text.replace(/<\/?user_message>/gi, "");
+      return `${senderLabel}: <user_message>${safeText}</user_message>`;
     });
 
     // Clear pending for this chat

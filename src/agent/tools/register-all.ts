@@ -324,38 +324,38 @@ export function registerAllTools(registry: ToolRegistry, config: Config): void {
   registry.register(telegramGetDialogsTool, telegramGetDialogsExecutor);
   registry.register(telegramMarkAsReadTool, telegramMarkAsReadExecutor);
   registry.register(telegramGetChatInfoTool, telegramGetChatInfoExecutor);
-  registry.register(telegramJoinChannelTool, telegramJoinChannelExecutor);
-  registry.register(telegramLeaveChannelTool, telegramLeaveChannelExecutor);
+  registry.register(telegramJoinChannelTool, telegramJoinChannelExecutor, "dm-only");
+  registry.register(telegramLeaveChannelTool, telegramLeaveChannelExecutor, "dm-only");
   registry.register(telegramGetMeTool, telegramGetMeExecutor);
   registry.register(telegramGetParticipantsTool, telegramGetParticipantsExecutor);
 
-  // Group moderation
-  registry.register(telegramKickUserTool, telegramKickUserExecutor);
-  registry.register(telegramBanUserTool, telegramBanUserExecutor);
-  registry.register(telegramUnbanUserTool, telegramUnbanUserExecutor);
-  registry.register(telegramCreateGroupTool, telegramCreateGroupExecutor);
-  registry.register(telegramSetChatPhotoTool, telegramSetChatPhotoExecutor);
+  // Group moderation (group-only)
+  registry.register(telegramKickUserTool, telegramKickUserExecutor, "group-only");
+  registry.register(telegramBanUserTool, telegramBanUserExecutor, "group-only");
+  registry.register(telegramUnbanUserTool, telegramUnbanUserExecutor, "group-only");
+  registry.register(telegramCreateGroupTool, telegramCreateGroupExecutor, "dm-only");
+  registry.register(telegramSetChatPhotoTool, telegramSetChatPhotoExecutor, "group-only");
 
-  // Contacts management
-  registry.register(telegramBlockUserTool, telegramBlockUserExecutor);
-  registry.register(telegramGetBlockedTool, telegramGetBlockedExecutor);
+  // Contacts management (dm-only)
+  registry.register(telegramBlockUserTool, telegramBlockUserExecutor, "dm-only");
+  registry.register(telegramGetBlockedTool, telegramGetBlockedExecutor, "dm-only");
   registry.register(telegramGetCommonChatsTool, telegramGetCommonChatsExecutor);
 
-  // Stories
-  registry.register(telegramSendStoryTool, telegramSendStoryExecutor);
+  // Stories (dm-only)
+  registry.register(telegramSendStoryTool, telegramSendStoryExecutor, "dm-only");
 
   // Folders & organization
   registry.register(telegramGetFoldersTool, telegramGetFoldersExecutor);
   registry.register(telegramCreateFolderTool, telegramCreateFolderExecutor);
   registry.register(telegramAddChatToFolderTool, telegramAddChatToFolderExecutor);
 
-  // Channel & group creation
-  registry.register(telegramCreateChannelTool, telegramCreateChannelExecutor);
+  // Channel & group creation (dm-only)
+  registry.register(telegramCreateChannelTool, telegramCreateChannelExecutor, "dm-only");
 
-  // Profile management
-  registry.register(telegramUpdateProfileTool, telegramUpdateProfileExecutor);
-  registry.register(telegramSetBioTool, telegramSetBioExecutor);
-  registry.register(telegramSetUsernameTool, telegramSetUsernameExecutor);
+  // Profile management (dm-only)
+  registry.register(telegramUpdateProfileTool, telegramUpdateProfileExecutor, "dm-only");
+  registry.register(telegramSetBioTool, telegramSetBioExecutor, "dm-only");
+  registry.register(telegramSetUsernameTool, telegramSetUsernameExecutor, "dm-only");
 
   // Message management
   registry.register(telegramDeleteMessageTool, telegramDeleteMessageExecutor);
@@ -364,31 +364,43 @@ export function registerAllTools(registry: ToolRegistry, config: Config): void {
   registry.register(telegramDownloadMediaTool, telegramDownloadMediaExecutor);
   registry.register(visionAnalyzeTool, visionAnalyzeExecutor);
 
-  // Stars & Balance
-  registry.register(telegramGetStarsBalanceTool, telegramGetStarsBalanceExecutor);
-  registry.register(telegramGetStarsTransactionsTool, telegramGetStarsTransactionsExecutor);
+  // Stars & Balance (dm-only)
+  registry.register(telegramGetStarsBalanceTool, telegramGetStarsBalanceExecutor, "dm-only");
+  registry.register(
+    telegramGetStarsTransactionsTool,
+    telegramGetStarsTransactionsExecutor,
+    "dm-only"
+  );
 
-  // Gifts & Collectibles
+  // Gifts & Collectibles (mutations dm-only)
   registry.register(telegramGetAvailableGiftsTool, telegramGetAvailableGiftsExecutor);
-  registry.register(telegramSendGiftTool, telegramSendGiftExecutor);
+  registry.register(telegramSendGiftTool, telegramSendGiftExecutor, "dm-only");
   registry.register(telegramGetMyGiftsTool, telegramGetMyGiftsExecutor);
-  registry.register(telegramTransferCollectibleTool, telegramTransferCollectibleExecutor);
-  registry.register(telegramSetCollectiblePriceTool, telegramSetCollectiblePriceExecutor);
+  registry.register(
+    telegramTransferCollectibleTool,
+    telegramTransferCollectibleExecutor,
+    "dm-only"
+  );
+  registry.register(
+    telegramSetCollectiblePriceTool,
+    telegramSetCollectiblePriceExecutor,
+    "dm-only"
+  );
   registry.register(telegramGetResaleGiftsTool, telegramGetResaleGiftsExecutor);
-  registry.register(telegramBuyResaleGiftTool, telegramBuyResaleGiftExecutor);
-  registry.register(telegramSetGiftStatusTool, telegramSetGiftStatusExecutor);
+  registry.register(telegramBuyResaleGiftTool, telegramBuyResaleGiftExecutor, "dm-only");
+  registry.register(telegramSetGiftStatusTool, telegramSetGiftStatusExecutor, "dm-only");
 
-  // Memory (agent self-memory management)
-  registry.register(memoryWriteTool, memoryWriteExecutor);
+  // Memory (agent self-memory management; write dm-only)
+  registry.register(memoryWriteTool, memoryWriteExecutor, "dm-only");
   registry.register(memoryReadTool, memoryReadExecutor);
 
   // User info & contacts
   registry.register(telegramGetUserInfoTool, telegramGetUserInfoExecutor);
   registry.register(telegramCheckUsernameTool, telegramCheckUsernameExecutor);
 
-  // Channel management
-  registry.register(telegramEditChannelInfoTool, telegramEditChannelInfoExecutor);
-  registry.register(telegramInviteToChannelTool, telegramInviteToChannelExecutor);
+  // Channel management (dm-only)
+  registry.register(telegramEditChannelInfoTool, telegramEditChannelInfoExecutor, "dm-only");
+  registry.register(telegramInviteToChannelTool, telegramInviteToChannelExecutor, "dm-only");
 
   // Market (gift floor prices) — also required when deals are enabled
   if (config.market.enabled || config.deals.enabled) {
@@ -398,18 +410,18 @@ export function registerAllTools(registry: ToolRegistry, config: Config): void {
     registry.register(marketPriceHistoryTool, marketPriceHistoryExecutor);
   }
 
-  // TON blockchain
+  // TON blockchain (send dm-only)
   registry.register(tonGetAddressTool, tonGetAddressExecutor);
   registry.register(tonGetBalanceTool, tonGetBalanceExecutor);
   registry.register(tonPriceTool, tonPriceExecutor);
-  registry.register(tonSendTool, tonSendExecutor);
+  registry.register(tonSendTool, tonSendExecutor, "dm-only");
   registry.register(tonGetTransactionsTool, tonGetTransactionsExecutor);
   registry.register(tonMyTransactionsTool, tonMyTransactionsExecutor);
 
-  // TON Jettons
+  // TON Jettons (swap/send dm-only)
   registry.register(jettonBalancesTool, jettonBalancesExecutor);
-  registry.register(jettonSwapTool, jettonSwapExecutor);
-  registry.register(jettonSendTool, jettonSendExecutor);
+  registry.register(jettonSwapTool, jettonSwapExecutor, "dm-only");
+  registry.register(jettonSendTool, jettonSendExecutor, "dm-only");
   registry.register(jettonInfoTool, jettonInfoExecutor);
   registry.register(jettonPriceTool, jettonPriceExecutor);
   registry.register(jettonSearchTool, jettonSearchExecutor);
@@ -419,36 +431,36 @@ export function registerAllTools(registry: ToolRegistry, config: Config): void {
   registry.register(jettonTrendingTool, jettonTrendingExecutor);
   registry.register(jettonPoolsTool, jettonPoolsExecutor);
 
-  // TON DNS
+  // TON DNS (mutations dm-only)
   registry.register(dnsCheckTool, dnsCheckExecutor);
   registry.register(dnsAuctionsTool, dnsAuctionsExecutor);
   registry.register(dnsResolveTool, dnsResolveExecutor);
-  registry.register(dnsStartAuctionTool, dnsStartAuctionExecutor);
-  registry.register(dnsBidTool, dnsBidExecutor);
-  registry.register(dnsLinkTool, dnsLinkExecutor);
-  registry.register(dnsUnlinkTool, dnsUnlinkExecutor);
+  registry.register(dnsStartAuctionTool, dnsStartAuctionExecutor, "dm-only");
+  registry.register(dnsBidTool, dnsBidExecutor, "dm-only");
+  registry.register(dnsLinkTool, dnsLinkExecutor, "dm-only");
+  registry.register(dnsUnlinkTool, dnsUnlinkExecutor, "dm-only");
 
-  // DeDust DEX
+  // DeDust DEX (swap dm-only)
   registry.register(dedustQuoteTool, dedustQuoteExecutor);
-  registry.register(dedustSwapTool, dedustSwapExecutor);
+  registry.register(dedustSwapTool, dedustSwapExecutor, "dm-only");
   registry.register(dedustPoolsTool, dedustPoolsExecutor);
 
-  // Smart Router (unified DEX)
+  // Smart Router (unified DEX; swap dm-only)
   registry.register(dexQuoteTool, dexQuoteExecutor);
-  registry.register(dexSwapTool, dexSwapExecutor);
+  registry.register(dexSwapTool, dexSwapExecutor, "dm-only");
 
-  // Journal (trading & business operations)
-  registry.register(journalLogTool, journalLogExecutor);
+  // Journal (trading & business operations; mutations dm-only)
+  registry.register(journalLogTool, journalLogExecutor, "dm-only");
   registry.register(journalQueryTool, journalQueryExecutor);
-  registry.register(journalUpdateTool, journalUpdateExecutor);
+  registry.register(journalUpdateTool, journalUpdateExecutor, "dm-only");
 
-  // Workspace (secure file operations)
+  // Workspace (secure file operations; mutations dm-only)
   registry.register(workspaceListTool, workspaceListExecutor);
   registry.register(workspaceReadTool, workspaceReadExecutor);
-  registry.register(workspaceWriteTool, workspaceWriteExecutor);
-  registry.register(workspaceDeleteTool, workspaceDeleteExecutor);
+  registry.register(workspaceWriteTool, workspaceWriteExecutor, "dm-only");
+  registry.register(workspaceDeleteTool, workspaceDeleteExecutor, "dm-only");
   registry.register(workspaceInfoTool, workspaceInfoExecutor);
-  registry.register(workspaceRenameTool, workspaceRenameExecutor);
+  registry.register(workspaceRenameTool, workspaceRenameExecutor, "dm-only");
 
   // Teleton Casino (slot & dice games with TON payments)
   if (config.casino.enabled) {
@@ -459,12 +471,12 @@ export function registerAllTools(registry: ToolRegistry, config: Config): void {
     registry.register(casinoMyStatsTool, casinoMyStatsExecutor);
   }
 
-  // Deals System (secure gift/TON trading with STRATEGY.md enforcement)
+  // Deals System (secure gift/TON trading with STRATEGY.md enforcement; mutations dm-only)
   if (config.deals.enabled) {
-    registry.register(dealProposeTool, dealProposeExecutor);
-    registry.register(dealVerifyPaymentTool, dealVerifyPaymentExecutor);
+    registry.register(dealProposeTool, dealProposeExecutor, "dm-only");
+    registry.register(dealVerifyPaymentTool, dealVerifyPaymentExecutor, "dm-only");
     registry.register(dealStatusTool, dealStatusExecutor);
     registry.register(dealListTool, dealListExecutor);
-    registry.register(dealCancelTool, dealCancelExecutor);
+    registry.register(dealCancelTool, dealCancelExecutor, "dm-only");
   }
 }
