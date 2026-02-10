@@ -313,15 +313,21 @@ export class VerificationPoller {
    * Handle verification timeout
    */
   private async handleTimeout(deal: DealContext): Promise<void> {
-    // Mark deal as failed
-    this.db
+    // Mark deal as failed (only if still payment_claimed)
+    const r = this.db
       .prepare(
         `UPDATE deals SET
           status = 'failed',
           notes = 'Payment verification timeout'
-        WHERE id = ?`
+        WHERE id = ? AND status = 'payment_claimed'`
       )
       .run(deal.dealId);
+
+    if (r.changes !== 1) {
+      // Already transitioned by another process — skip
+      this.retryMap.delete(deal.dealId);
+      return;
+    }
 
     // Update bot message
     if (deal.inlineMessageId) {

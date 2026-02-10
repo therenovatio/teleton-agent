@@ -58,28 +58,36 @@ export function updateDealStatus(db: Database.Database, dealId: string, status: 
 /**
  * Mark deal as accepted and extend expiry to 5 minutes from now
  */
-export function acceptDeal(db: Database.Database, dealId: string): void {
+export function acceptDeal(db: Database.Database, dealId: string): boolean {
   const newExpiry = Math.floor(Date.now() / 1000) + DEAL_VERIFICATION_WINDOW_SECONDS;
-  db.prepare(`UPDATE deals SET status = 'accepted', expires_at = ? WHERE id = ?`).run(
-    newExpiry,
-    dealId
-  );
+  const r = db
+    .prepare(
+      `UPDATE deals SET status = 'accepted', expires_at = ? WHERE id = ? AND status = 'proposed'`
+    )
+    .run(newExpiry, dealId);
+  return r.changes === 1;
 }
 
 /**
  * Mark deal as declined
  */
-export function declineDeal(db: Database.Database, dealId: string): void {
-  db.prepare(`UPDATE deals SET status = 'declined' WHERE id = ?`).run(dealId);
+export function declineDeal(db: Database.Database, dealId: string): boolean {
+  const r = db
+    .prepare(`UPDATE deals SET status = 'declined' WHERE id = ? AND status = 'proposed'`)
+    .run(dealId);
+  return r.changes === 1;
 }
 
 /**
  * Mark payment as claimed (user clicked "I've sent")
  */
-export function claimPayment(db: Database.Database, dealId: string): void {
-  db.prepare(
-    `UPDATE deals SET status = 'payment_claimed', payment_claimed_at = unixepoch() WHERE id = ?`
-  ).run(dealId);
+export function claimPayment(db: Database.Database, dealId: string): boolean {
+  const r = db
+    .prepare(
+      `UPDATE deals SET status = 'payment_claimed', payment_claimed_at = unixepoch() WHERE id = ? AND status = 'accepted'`
+    )
+    .run(dealId);
+  return r.changes === 1;
 }
 
 /**
@@ -104,8 +112,13 @@ export function isDealExpired(deal: DealContext): boolean {
 /**
  * Mark deal as expired
  */
-export function expireDeal(db: Database.Database, dealId: string): void {
-  db.prepare(`UPDATE deals SET status = 'expired' WHERE id = ?`).run(dealId);
+export function expireDeal(db: Database.Database, dealId: string): boolean {
+  const r = db
+    .prepare(
+      `UPDATE deals SET status = 'expired' WHERE id = ? AND status IN ('proposed', 'accepted')`
+    )
+    .run(dealId);
+  return r.changes === 1;
 }
 
 /**

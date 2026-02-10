@@ -1,4 +1,4 @@
-import { getCollections, getModels, getStats } from "./db.js";
+import { getStats } from "./db.js";
 import { initScraperDb } from "./scraper-db.js";
 import { MarketScraperService } from "./scraper-service.js";
 import type Database from "better-sqlite3";

@@ -5,7 +5,7 @@ import { TelegramBridge, type TelegramMessage } from "./telegram/bridge.js";
 import { MessageHandler } from "./telegram/handlers.js";
 import { AdminHandler } from "./telegram/admin.js";
 import { MessageDebouncer } from "./telegram/debounce.js";
-import { getDatabase, initializeMemory } from "./memory/index.js";
+import { getDatabase, closeDatabase, initializeMemory } from "./memory/index.js";
 import { getWalletAddress } from "./ton/wallet-service.js";
 import { setTonapiKey } from "./constants/api-endpoints.js";
 import { TELETON_ROOT } from "./workspace/paths.js";
@@ -494,6 +494,7 @@ ${blue}  ┌──────────────────────�
     }
 
     await this.bridge.disconnect();
+    closeDatabase();
   }
 }
 
