@@ -44,6 +44,7 @@ export interface SendMessageOptions {
 export class TelegramBridge {
   private client: TelegramUserClient;
   private ownUserId?: bigint;
+  private ownUsername?: string;
   private peerCache: Map<string, Api.TypePeer> = new Map();
 
   constructor(config: TelegramClientConfig) {
@@ -58,6 +59,7 @@ export class TelegramBridge {
     const me = this.client.getMe();
     if (me) {
       this.ownUserId = me.id;
+      this.ownUsername = me.username?.toLowerCase();
     }
 
     // Load dialogs to cache entities for sending messages
@@ -312,8 +314,11 @@ export class TelegramBridge {
     const senderIdBig = msg.senderId ? BigInt(msg.senderId.toString()) : BigInt(0);
     const senderId = Number(senderIdBig);
 
-    // Check if message mentions us
-    const mentionsMe = msg.mentioned ?? false;
+    // Check if message mentions us (MTProto flag + text fallback)
+    let mentionsMe = msg.mentioned ?? false;
+    if (!mentionsMe && this.ownUsername && msg.message) {
+      mentionsMe = msg.message.toLowerCase().includes(`@${this.ownUsername}`);
+    }
 
     // Determine chat type
     const isChannel = msg.post ?? false;

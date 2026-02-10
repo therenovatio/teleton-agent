@@ -337,6 +337,14 @@ export class MessageHandler {
     const releaseLock = await this.chatLock.acquire(message.chatId);
 
     try {
+      // Re-check offset after acquiring lock to prevent duplicate processing
+      // (GramJS may fire duplicate NewMessage events during reconnection)
+      const postLockOffset = readOffset(message.chatId) ?? 0;
+      if (message.id <= postLockOffset) {
+        verbose(`Skipping message ${message.id} (already processed after lock)`);
+        return;
+      }
+
       // 4. Typing simulation if enabled
       if (this.config.typing_simulation) {
         await this.bridge.setTyping(message.chatId);
