@@ -80,6 +80,16 @@ export interface RegisteredTool {
 }
 
 /**
+ * Tool entry for category-level registration.
+ * Each category index.ts exports a `tools: ToolEntry[]` array.
+ */
+export interface ToolEntry {
+  tool: Tool;
+  executor: ToolExecutor<any>;
+  scope?: ToolScope;
+}
+
+/**
  * Built-in plugin module interface.
  * Modules are self-contained feature packs (casino, deals, etc.)
  * that register their own tools, config, and migrations.

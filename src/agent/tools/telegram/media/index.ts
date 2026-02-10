@@ -1,6 +1,23 @@
-export { telegramSendPhotoTool, telegramSendPhotoExecutor } from "./send-photo.js";
-export { telegramSendVoiceTool, telegramSendVoiceExecutor } from "./send-voice.js";
-export { telegramSendStickerTool, telegramSendStickerExecutor } from "./send-sticker.js";
-export { telegramSendGifTool, telegramSendGifExecutor } from "./send-gif.js";
-export { telegramDownloadMediaTool, telegramDownloadMediaExecutor } from "./download-media.js";
-export { visionAnalyzeTool, visionAnalyzeExecutor } from "./vision-analyze.js";
+import { telegramSendPhotoTool, telegramSendPhotoExecutor } from "./send-photo.js";
+import { telegramSendVoiceTool, telegramSendVoiceExecutor } from "./send-voice.js";
+import { telegramSendStickerTool, telegramSendStickerExecutor } from "./send-sticker.js";
+import { telegramSendGifTool, telegramSendGifExecutor } from "./send-gif.js";
+import { telegramDownloadMediaTool, telegramDownloadMediaExecutor } from "./download-media.js";
+import { visionAnalyzeTool, visionAnalyzeExecutor } from "./vision-analyze.js";
+import type { ToolEntry } from "../../types.js";
+
+export { telegramSendPhotoTool, telegramSendPhotoExecutor };
+export { telegramSendVoiceTool, telegramSendVoiceExecutor };
+export { telegramSendStickerTool, telegramSendStickerExecutor };
+export { telegramSendGifTool, telegramSendGifExecutor };
+export { telegramDownloadMediaTool, telegramDownloadMediaExecutor };
+export { visionAnalyzeTool, visionAnalyzeExecutor };
+
+export const tools: ToolEntry[] = [
+  { tool: telegramSendPhotoTool, executor: telegramSendPhotoExecutor },
+  { tool: telegramSendVoiceTool, executor: telegramSendVoiceExecutor },
+  { tool: telegramSendStickerTool, executor: telegramSendStickerExecutor },
+  { tool: telegramSendGifTool, executor: telegramSendGifExecutor },
+  { tool: telegramDownloadMediaTool, executor: telegramDownloadMediaExecutor },
+  { tool: visionAnalyzeTool, executor: visionAnalyzeExecutor },
+];

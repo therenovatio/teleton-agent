@@ -48,7 +48,7 @@ export class TonnetApp {
 
     // Create tool registry and register all tools
     this.toolRegistry = new ToolRegistry();
-    registerAllTools(this.toolRegistry, this.config);
+    registerAllTools(this.toolRegistry);
 
     // Initialize agent with tools (tool count updated after module loading below)
     this.agent = new AgentRuntime(this.config, soul, this.toolRegistry);

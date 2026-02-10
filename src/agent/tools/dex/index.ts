@@ -1,2 +1,11 @@
-export { dexQuoteTool, dexQuoteExecutor } from "./smart-quote.js";
-export { dexSwapTool, dexSwapExecutor } from "./smart-swap.js";
+import { dexQuoteTool, dexQuoteExecutor } from "./smart-quote.js";
+import { dexSwapTool, dexSwapExecutor } from "./smart-swap.js";
+import type { ToolEntry } from "../types.js";
+
+export { dexQuoteTool, dexQuoteExecutor };
+export { dexSwapTool, dexSwapExecutor };
+
+export const tools: ToolEntry[] = [
+  { tool: dexSwapTool, executor: dexSwapExecutor, scope: "dm-only" },
+  { tool: dexQuoteTool, executor: dexQuoteExecutor },
+];
