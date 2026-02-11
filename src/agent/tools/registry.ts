@@ -8,6 +8,7 @@ import type {
   ToolResult,
   ToolScope,
 } from "./types.js";
+import type { ModulePermissions } from "./module-permissions.js";
 
 /**
  * Registry for managing and executing agent tools
@@ -15,6 +16,8 @@ import type {
 export class ToolRegistry {
   private tools: Map<string, RegisteredTool> = new Map();
   private scopes: Map<string, ToolScope> = new Map();
+  private toolModules: Map<string, string> = new Map();
+  private permissions: ModulePermissions | null = null;
 
   /**
    * Register a new tool with optional scope
@@ -31,6 +34,46 @@ export class ToolRegistry {
     if (scope && scope !== "always") {
       this.scopes.set(tool.name, scope);
     }
+    this.toolModules.set(tool.name, tool.name.split("_")[0]);
+  }
+
+  /**
+   * Set the module permissions manager
+   */
+  setPermissions(mp: ModulePermissions): void {
+    this.permissions = mp;
+  }
+
+  /**
+   * Get sorted unique module names derived from registered tools
+   */
+  getAvailableModules(): string[] {
+    const modules = new Set(this.toolModules.values());
+    return Array.from(modules).sort();
+  }
+
+  /**
+   * Get the number of tools in a module
+   */
+  getModuleToolCount(module: string): number {
+    let count = 0;
+    for (const mod of this.toolModules.values()) {
+      if (mod === module) count++;
+    }
+    return count;
+  }
+
+  /**
+   * Get tools belonging to a module with their scope
+   */
+  getModuleTools(module: string): Array<{ name: string; scope: ToolScope | "always" }> {
+    const result: Array<{ name: string; scope: ToolScope | "always" }> = [];
+    for (const [name, mod] of this.toolModules) {
+      if (mod === module) {
+        result.push({ name, scope: this.scopes.get(name) ?? "always" });
+      }
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   /**
@@ -68,6 +111,29 @@ export class ToolRegistry {
       };
     }
 
+    // Enforce module permissions in groups
+    if (context.isGroup && this.permissions) {
+      const module = this.toolModules.get(toolCall.name);
+      if (module) {
+        const level = this.permissions.getLevel(context.chatId, module);
+        if (level === "disabled") {
+          return {
+            success: false,
+            error: `Module "${module}" is disabled in this group`,
+          };
+        }
+        if (level === "admin") {
+          const isAdmin = context.config?.telegram.admin_ids.includes(context.senderId) ?? false;
+          if (!isAdmin) {
+            return {
+              success: false,
+              error: `Module "${module}" is restricted to admins in this group`,
+            };
+          }
+        }
+      }
+    }
+
     try {
       // Validate arguments against the tool's schema
       const validatedArgs = validateToolCall(this.getAll(), toolCall);
@@ -100,14 +166,35 @@ export class ToolRegistry {
   }
 
   /**
-   * Get tools filtered by chat context (DM vs group) and provider limit.
+   * Get tools filtered by chat context (DM vs group), module permissions, and provider limit.
    * - In groups: excludes "dm-only" tools (financial, private)
    * - In DMs: excludes "group-only" tools (moderation)
+   * - In groups with permissions: excludes disabled modules, admin-only modules for non-admins
    */
-  getForContext(isGroup: boolean, toolLimit: number | null): PiAiTool[] {
+  getForContext(
+    isGroup: boolean,
+    toolLimit: number | null,
+    chatId?: string,
+    isAdmin?: boolean
+  ): PiAiTool[] {
     const excluded = isGroup ? "dm-only" : "group-only";
     const filtered = Array.from(this.tools.values())
-      .filter((rt) => this.scopes.get(rt.tool.name) !== excluded)
+      .filter((rt) => {
+        // Scope filter
+        if (this.scopes.get(rt.tool.name) === excluded) return false;
+
+        // Module permission filter (only in groups)
+        if (isGroup && chatId && this.permissions) {
+          const module = this.toolModules.get(rt.tool.name);
+          if (module) {
+            const level = this.permissions.getLevel(chatId, module);
+            if (level === "disabled") return false;
+            if (level === "admin" && !isAdmin) return false;
+          }
+        }
+
+        return true;
+      })
       .map((rt) => rt.tool);
 
     if (toolLimit !== null && filtered.length > toolLimit) {

@@ -6,6 +6,8 @@ import { getProviderMetadata, type SupportedProvider } from "../config/providers
 import { DEALS_CONFIG } from "../deals/config.js";
 import { loadTemplate } from "../workspace/manager.js";
 import { isVerbose, setVerbose } from "../utils/logger.js";
+import type { ModulePermissions, ModuleLevel } from "../agent/tools/module-permissions.js";
+import type { ToolRegistry } from "../agent/tools/registry.js";
 
 export interface AdminCommand {
   command: string;
@@ -16,6 +18,7 @@ export interface AdminCommand {
 
 const VALID_DM_POLICIES = ["open", "allowlist", "pairing", "disabled"] as const;
 const VALID_GROUP_POLICIES = ["open", "allowlist", "disabled"] as const;
+const VALID_MODULE_LEVELS = ["open", "admin", "disabled"] as const;
 
 /**
  * Admin command handler for bot panel and DM commands
@@ -25,11 +28,21 @@ export class AdminHandler {
   private config: TelegramConfig;
   private agent: AgentRuntime;
   private paused = false;
+  private permissions: ModulePermissions | null;
+  private registry: ToolRegistry | null;
 
-  constructor(bridge: TelegramBridge, config: TelegramConfig, agent: AgentRuntime) {
+  constructor(
+    bridge: TelegramBridge,
+    config: TelegramConfig,
+    agent: AgentRuntime,
+    permissions?: ModulePermissions,
+    registry?: ToolRegistry
+  ) {
     this.bridge = bridge;
     this.config = config;
     this.agent = agent;
+    this.permissions = permissions ?? null;
+    this.registry = registry ?? null;
   }
 
   /**
@@ -70,7 +83,12 @@ export class AdminHandler {
   /**
    * Handle admin command
    */
-  async handleCommand(command: AdminCommand, chatId: string, senderId: number): Promise<string> {
+  async handleCommand(
+    command: AdminCommand,
+    chatId: string,
+    senderId: number,
+    isGroup?: boolean
+  ): Promise<string> {
     if (!this.isAdmin(senderId)) {
       return "⛔ Admin access required";
     }
@@ -103,6 +121,8 @@ export class AdminHandler {
         return await this.handleStopCommand();
       case "verbose":
         return this.handleVerboseCommand();
+      case "modules":
+        return this.handleModulesCommand(command, isGroup ?? false);
       case "help":
         return this.handleHelpCommand();
       case "ping":
@@ -328,6 +348,152 @@ export class AdminHandler {
   }
 
   /**
+   * /modules - Manage per-group module permissions
+   */
+  private handleModulesCommand(command: AdminCommand, isGroup: boolean): string {
+    if (!this.permissions || !this.registry) {
+      return "❌ Module permissions non disponible";
+    }
+
+    if (!isGroup) {
+      return "❌ /modules est uniquement disponible dans les groupes";
+    }
+
+    const chatId = command.chatId;
+    const sub = command.args[0]?.toLowerCase();
+
+    if (!sub) {
+      return this.listModules(chatId);
+    }
+
+    switch (sub) {
+      case "set":
+        return this.setModuleLevel(chatId, command.args[1], command.args[2], command.senderId);
+      case "info":
+        return this.showModuleInfo(command.args[1]);
+      case "reset":
+        return this.resetModules(chatId, command.args[1]);
+      default:
+        return `❌ Sous-commande inconnue: "${sub}"\n\nUsage: /modules | /modules set <module> <level> | /modules info <module> | /modules reset [module]`;
+    }
+  }
+
+  private listModules(chatId: string): string {
+    const modules = this.registry!.getAvailableModules();
+    const overrides = this.permissions!.getOverrides(chatId);
+
+    const lines: string[] = ["🧩 **Modules** (ce groupe)\n"];
+
+    for (const mod of modules) {
+      const count = this.registry!.getModuleToolCount(mod);
+      const level = overrides.get(mod) ?? "open";
+      const isProtected = this.permissions!.isProtected(mod);
+
+      let icon: string;
+      switch (level) {
+        case "open":
+          icon = "✅";
+          break;
+        case "admin":
+          icon = "🔐";
+          break;
+        case "disabled":
+          icon = "❌";
+          break;
+      }
+
+      const toolWord = count === 1 ? "tool" : "tools";
+      const protectedMark = isProtected ? " 🔒" : "";
+      lines.push(` ${icon} **${mod}**   ${count} ${toolWord}  ${level}${protectedMark}`);
+    }
+
+    lines.push("");
+    lines.push("Niveaux: `open` | `admin` | `disabled`");
+    lines.push("Usage: `/modules set <module> <level>`");
+
+    return lines.join("\n");
+  }
+
+  private setModuleLevel(
+    chatId: string,
+    module: string | undefined,
+    level: string | undefined,
+    senderId: number
+  ): string {
+    if (!module || !level) {
+      return "❌ Usage: /modules set <module> <level>";
+    }
+
+    module = module.toLowerCase();
+    level = level.toLowerCase();
+
+    // Validate module exists
+    const available = this.registry!.getAvailableModules();
+    if (!available.includes(module)) {
+      return `❌ Module inconnu: "${module}"`;
+    }
+
+    // Check protected
+    if (this.permissions!.isProtected(module)) {
+      return `⛔ Module "${module}" est protégé`;
+    }
+
+    // Validate level
+    if (!VALID_MODULE_LEVELS.includes(level as any)) {
+      return `❌ Niveau invalide: "${level}". Valide: ${VALID_MODULE_LEVELS.join(", ")}`;
+    }
+
+    const oldLevel = this.permissions!.getLevel(chatId, module);
+    this.permissions!.setLevel(chatId, module, level as ModuleLevel, senderId);
+
+    const icons: Record<string, string> = { open: "✅", admin: "🔐", disabled: "❌" };
+    return `${icons[level]} **${module}**: ${oldLevel} → ${level}`;
+  }
+
+  private showModuleInfo(module: string | undefined): string {
+    if (!module) {
+      return "❌ Usage: /modules info <module>";
+    }
+
+    module = module.toLowerCase();
+
+    const available = this.registry!.getAvailableModules();
+    if (!available.includes(module)) {
+      return `❌ Module inconnu: "${module}"`;
+    }
+
+    const tools = this.registry!.getModuleTools(module);
+    const count = tools.length;
+    const toolWord = count === 1 ? "tool" : "tools";
+
+    const lines: string[] = [`📦 Module "**${module}**" (${count} ${toolWord})\n`];
+
+    for (const t of tools) {
+      lines.push(` ${t.name}   ${t.scope}`);
+    }
+
+    return lines.join("\n");
+  }
+
+  private resetModules(chatId: string, module: string | undefined): string {
+    if (module) {
+      module = module.toLowerCase();
+      const available = this.registry!.getAvailableModules();
+      if (!available.includes(module)) {
+        return `❌ Module inconnu: "${module}"`;
+      }
+      if (this.permissions!.isProtected(module)) {
+        return `⛔ Module "${module}" est protégé (déjà open)`;
+      }
+      this.permissions!.resetModule(chatId, module);
+      return `✅ **${module}** → open`;
+    }
+
+    this.permissions!.resetAll(chatId);
+    return "✅ Tous les modules remis à **open**";
+  }
+
+  /**
    * /help - Show available commands
    */
   private handleHelpCommand(): string {
@@ -347,6 +513,9 @@ Change access policy
 
 **/strategy** [buy|sell <percent>]
 View or change trading thresholds
+
+**/modules** [set|info|reset]
+Manage per-group module permissions
 
 **/wallet**
 Check TON wallet balance

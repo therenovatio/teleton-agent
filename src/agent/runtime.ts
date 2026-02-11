@@ -368,7 +368,14 @@ export class AgentRuntime {
       const providerMeta = getProviderMetadata(
         (this.config.agent.provider || "anthropic") as SupportedProvider
       );
-      const tools = this.toolRegistry?.getForContext(isGroup ?? false, providerMeta.toolLimit);
+      const isAdmin =
+        toolContext?.config?.telegram.admin_ids.includes(toolContext.senderId) ?? false;
+      const tools = this.toolRegistry?.getForContext(
+        isGroup ?? false,
+        providerMeta.toolLimit,
+        chatId,
+        isAdmin
+      );
 
       // AGENTIC LOOP: Keep calling LLM until it returns text without tools
       const maxIterations = this.config.agent.max_agentic_iterations || 5;

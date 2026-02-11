@@ -16,6 +16,7 @@ import { registerAllTools } from "./agent/tools/register-all.js";
 import { loadPlugins } from "./agent/tools/plugin-loader.js";
 import { getProviderMetadata, type SupportedProvider } from "./config/providers.js";
 import { loadModules } from "./agent/tools/module-loader.js";
+import { ModulePermissions } from "./agent/tools/module-permissions.js";
 import type { PluginModule, PluginContext } from "./agent/tools/types.js";
 import { getMarketService } from "./market/module.js";
 
@@ -84,6 +85,11 @@ export class TonnetApp {
 
     // Load built-in plugin modules (casino, etc.)
     this.modules = loadModules(this.toolRegistry, this.config, db);
+
+    // Initialize per-group module permissions
+    const modulePermissions = new ModulePermissions(db);
+    this.toolRegistry.setPermissions(modulePermissions);
+
     this.toolCount = this.toolRegistry.count;
 
     // Initialize handlers with memory stores
@@ -101,7 +107,13 @@ export class TonnetApp {
       this.config // Pass full config for vision tool API key access
     );
 
-    this.adminHandler = new AdminHandler(this.bridge, this.config.telegram, this.agent);
+    this.adminHandler = new AdminHandler(
+      this.bridge,
+      this.config.telegram,
+      this.agent,
+      modulePermissions,
+      this.toolRegistry
+    );
   }
 
   /**
@@ -315,7 +327,8 @@ ${blue}  ┌──────────────────────�
           const response = await this.adminHandler.handleCommand(
             adminCmd,
             message.chatId,
-            message.senderId
+            message.senderId,
+            message.isGroup
           );
 
           await this.bridge.sendMessage({
