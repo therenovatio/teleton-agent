@@ -200,8 +200,8 @@ export class MessageHandler {
       };
     }
 
-    // Skip messages from bots in groups (avoid bot-to-bot loops)
-    if (message.isGroup && message.isBot) {
+    // Skip messages from bots everywhere (avoid bot-to-bot loops)
+    if (message.isBot) {
       return {
         message,
         isAdmin,
