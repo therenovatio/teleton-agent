@@ -94,7 +94,7 @@ npm install -g teleton
 
 **Docker:**
 ```bash
-docker run -it -v ~/.teleton:/data ghcr.io/tonresistor/teleton:latest setup
+docker run -it -v ~/.teleton:/data ghcr.io/tonresistor/teleton-agent:latest setup
 ```
 
 **From source (development):**
