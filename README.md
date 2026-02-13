@@ -11,9 +11,7 @@
 
 ---
 
-## Overview
-
-Teleton is a production-grade autonomous AI agent that operates as a real Telegram user account (not a bot), powered by multi-provider LLM support. It provides full access to the Telegram API with deep TON blockchain integration for cryptocurrency operations, DEX trading, and decentralized finance.
+<p align="center">Teleton is a production-grade autonomous AI agent that operates as a real Telegram user account (not a bot), powered by multi-provider LLM support. It provides full access to the Telegram API with deep TON blockchain integration for cryptocurrency operations, DEX trading, and decentralized finance.</p>
 
 ### Key Highlights
 
