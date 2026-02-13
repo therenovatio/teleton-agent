@@ -1,10 +1,11 @@
 import { Type } from "@sinclair/typebox";
 import type { Tool, ToolExecutor, ToolResult } from "../types.js";
-import { TonClient, toNano, fromNano } from "@ton/ton";
+import { TonClient } from "@ton/ton";
 import { Address } from "@ton/core";
 import { getCachedHttpEndpoint } from "../../../ton/endpoint.js";
 import { Factory, Asset, PoolType, ReadinessStatus } from "@dedust/sdk";
 import { DEDUST_FACTORY_MAINNET, NATIVE_TON_ADDRESS } from "./constants.js";
+import { getDecimals, toUnits, fromUnits } from "./asset-cache.js";
 
 /**
  * Parameters for dedust_quote tool
@@ -123,8 +124,12 @@ export const dedustQuoteExecutor: ToolExecutor<DedustQuoteParams> = async (
     // Get reserves for additional info
     const reserves = await pool.getReserves();
 
-    // Convert amount to nano units (assuming 9 decimals for TON/most jettons)
-    const amountIn = toNano(amount);
+    // Resolve correct decimals using normalized addresses (friendly format)
+    const fromDecimals = await getDecimals(isTonInput ? "ton" : fromAssetAddr);
+    const toDecimals = await getDecimals(isTonOutput ? "ton" : toAssetAddr);
+
+    // Convert amount using correct decimals
+    const amountIn = toUnits(amount, fromDecimals);
 
     // Get estimated output
     const { amountOut, tradeFee } = await pool.getEstimatedSwapOut({
@@ -135,11 +140,11 @@ export const dedustQuoteExecutor: ToolExecutor<DedustQuoteParams> = async (
     // Calculate minimum output with slippage
     const minAmountOut = amountOut - (amountOut * BigInt(Math.floor(slippage * 10000))) / 10000n;
 
-    // Calculate rate
-    const expectedOutput = Number(fromNano(amountOut));
-    const minOutput = Number(fromNano(minAmountOut));
+    // Calculate rate using correct decimals
+    const expectedOutput = fromUnits(amountOut, toDecimals);
+    const minOutput = fromUnits(minAmountOut, toDecimals);
     const rate = expectedOutput / amount;
-    const feeAmount = Number(fromNano(tradeFee));
+    const feeAmount = fromUnits(tradeFee, toDecimals);
 
     // Build quote response
     const fromSymbol = isTonInput ? "TON" : "Token";
@@ -160,8 +165,8 @@ export const dedustQuoteExecutor: ToolExecutor<DedustQuoteParams> = async (
       poolType: pool_type,
       poolAddress: pool.address.toString(),
       reserves: {
-        asset0: fromNano(reserves[0]).toString(),
-        asset1: fromNano(reserves[1]).toString(),
+        asset0: fromUnits(reserves[0], fromDecimals).toString(),
+        asset1: fromUnits(reserves[1], toDecimals).toString(),
       },
     };
 

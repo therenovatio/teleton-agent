@@ -2,11 +2,12 @@ import { Type } from "@sinclair/typebox";
 import type { Tool, ToolExecutor, ToolResult } from "../types.js";
 import { loadWallet } from "../../../ton/wallet-service.js";
 import { mnemonicToPrivateKey } from "@ton/crypto";
-import { WalletContractV5R1, TonClient, toNano, fromNano } from "@ton/ton";
+import { WalletContractV5R1, TonClient, toNano } from "@ton/ton";
 import { Address } from "@ton/core";
 import { getCachedHttpEndpoint } from "../../../ton/endpoint.js";
 import { Factory, Asset, PoolType, ReadinessStatus, JettonRoot, VaultJetton } from "@dedust/sdk";
 import { DEDUST_FACTORY_MAINNET, DEDUST_GAS, NATIVE_TON_ADDRESS } from "./constants.js";
+import { getDecimals, toUnits, fromUnits } from "./asset-cache.js";
 
 /**
  * Parameters for dedust_swap tool
@@ -131,8 +132,12 @@ export const dedustSwapExecutor: ToolExecutor<DedustSwapParams> = async (
       };
     }
 
-    // Convert amount to nano units
-    const amountIn = toNano(amount);
+    // Resolve correct decimals using normalized addresses (friendly format)
+    const fromDecimals = await getDecimals(isTonInput ? "ton" : fromAssetAddr);
+    const toDecimals = await getDecimals(isTonOutput ? "ton" : toAssetAddr);
+
+    // Convert amount using correct decimals
+    const amountIn = toUnits(amount, fromDecimals);
 
     // Get estimated output
     const { amountOut, tradeFee } = await pool.getEstimatedSwapOut({
@@ -208,10 +213,10 @@ export const dedustSwapExecutor: ToolExecutor<DedustSwapParams> = async (
       });
     }
 
-    // Calculate expected output for display
-    const expectedOutput = Number(fromNano(amountOut));
-    const minOutput = Number(fromNano(minAmountOut));
-    const feeAmount = Number(fromNano(tradeFee));
+    // Calculate expected output for display using correct decimals
+    const expectedOutput = fromUnits(amountOut, toDecimals);
+    const minOutput = fromUnits(minAmountOut, toDecimals);
+    const feeAmount = fromUnits(tradeFee, toDecimals);
 
     const fromSymbol = isTonInput ? "TON" : "Token";
     const toSymbol = isTonOutput ? "TON" : "Token";

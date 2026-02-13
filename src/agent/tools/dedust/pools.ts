@@ -138,11 +138,11 @@ export const dedustPoolsExecutor: ToolExecutor<DedustPoolsParams> = async (
           ? "TON"
           : asset1?.metadata?.symbol || asset1?.address?.slice(0, 8) || "Unknown";
 
-      // Convert reserves from nano
-      // Note: Uses standard 9 decimals. Some tokens (USDT/USDC) use 6 decimals and will show inflated values.
-      // For production, fetch actual decimals from jetton metadata.
-      const reserve0 = Number(BigInt(pool.reserves[0] || "0")) / 1e9;
-      const reserve1 = Number(BigInt(pool.reserves[1] || "0")) / 1e9;
+      // Convert reserves using actual decimals from asset metadata
+      const decimals0 = asset0?.metadata?.decimals ?? 9;
+      const decimals1 = asset1?.metadata?.decimals ?? 9;
+      const reserve0 = Number(BigInt(pool.reserves[0] || "0")) / 10 ** decimals0;
+      const reserve1 = Number(BigInt(pool.reserves[1] || "0")) / 10 ** decimals1;
 
       // Parse trade fee (usually in basis points or fraction)
       const tradeFee = parseFloat(pool.tradeFee || "0");
