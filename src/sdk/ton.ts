@@ -17,9 +17,39 @@ import { PluginSDKError } from "./errors.js";
 import { getWalletAddress, getWalletBalance, getTonPrice } from "../ton/wallet-service.js";
 import { sendTon } from "../ton/transfer.js";
 import { PAYMENT_TOLERANCE_RATIO } from "../constants/limits.js";
+import { withBlockchainRetry } from "../utils/retry.js";
 
 /** Default max payment age in minutes */
 const DEFAULT_MAX_AGE_MINUTES = 10;
+
+/** Default transaction retention in days */
+const DEFAULT_TX_RETENTION_DAYS = 30;
+
+/** Cleanup probability (10% chance per verifyPayment call) */
+const CLEANUP_PROBABILITY = 0.1;
+
+/**
+ * Opportunistic cleanup of old used_transactions records.
+ * Runs with CLEANUP_PROBABILITY chance to avoid overhead.
+ */
+function cleanupOldTransactions(
+  db: Database.Database,
+  retentionDays: number,
+  log: PluginLogger
+): void {
+  if (Math.random() > CLEANUP_PROBABILITY) return; // Skip 90% of the time
+
+  try {
+    const cutoff = Math.floor(Date.now() / 1000) - retentionDays * 24 * 60 * 60;
+    const result = db.prepare("DELETE FROM used_transactions WHERE used_at < ?").run(cutoff);
+
+    if (result.changes > 0) {
+      log.debug(`Cleaned up ${result.changes} old transaction records (>${retentionDays}d)`);
+    }
+  } catch (err) {
+    log.error("Transaction cleanup failed:", err);
+  }
+}
 
 export function createTonSDK(log: PluginLogger, db: Database.Database | null): TonSDK {
   return {
@@ -107,9 +137,13 @@ export function createTonSDK(log: PluginLogger, db: Database.Database | null): T
         const endpoint = await getCachedHttpEndpoint();
         const client = new TonClient({ endpoint });
 
-        const transactions = await client.getTransactions(addressObj, {
-          limit: Math.min(limit ?? 10, 50),
-        });
+        const transactions = await withBlockchainRetry(
+          () =>
+            client.getTransactions(addressObj, {
+              limit: Math.min(limit ?? 10, 50),
+            }),
+          "sdk.ton.getTransactions"
+        );
 
         return formatTransactions(transactions);
       } catch (err) {
@@ -132,6 +166,9 @@ export function createTonSDK(log: PluginLogger, db: Database.Database | null): T
       }
 
       const maxAgeMinutes = params.maxAgeMinutes ?? DEFAULT_MAX_AGE_MINUTES;
+
+      // Opportunistic cleanup of old transactions
+      cleanupOldTransactions(db, DEFAULT_TX_RETENTION_DAYS, log);
 
       try {
         const txs = await this.getTransactions(address, 20);

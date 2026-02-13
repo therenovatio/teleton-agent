@@ -164,10 +164,5 @@ export function createTelegramSDK(bridge: TelegramBridge, log: PluginLogger): Te
     isAvailable(): boolean {
       return bridge.isAvailable();
     },
-
-    getRawClient(): unknown {
-      requireBridge();
-      return bridge.getClient().getClient();
-    },
   };
 }

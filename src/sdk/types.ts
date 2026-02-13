@@ -306,17 +306,6 @@ export interface TelegramSDK {
    * Check if the Telegram bridge is connected and ready.
    */
   isAvailable(): boolean;
-
-  /**
-   * Get the raw GramJS TelegramClient for advanced operations.
-   *
-   * WARNING: This is an escape hatch. Using the raw client bypasses
-   * SDK error handling and safety checks. Prefer SDK methods when possible.
-   *
-   * @returns GramJS TelegramClient instance
-   * @throws {PluginSDKError} BRIDGE_NOT_CONNECTED
-   */
-  getRawClient(): unknown;
 }
 
 /**
