@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { api, TaskData } from '../lib/api';
 
 type TaskStatus = TaskData['status'];
@@ -209,7 +209,7 @@ export function Tasks() {
             {filter ? `No ${STATUS_LABELS[filter].toLowerCase()} tasks` : 'No tasks yet'}
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', tableLayout: 'fixed' }}>
             <thead>
               <tr
                 style={{
@@ -220,195 +220,197 @@ export function Tasks() {
                 }}
               >
                 <th style={{ textAlign: 'left', padding: '8px 14px' }}>Description</th>
-                <th style={{ textAlign: 'center', padding: '8px 10px', width: '80px' }}>Status</th>
-                <th style={{ textAlign: 'center', padding: '8px 10px', width: '60px' }}>Priority</th>
-                <th style={{ textAlign: 'right', padding: '8px 14px', width: '120px' }}>Scheduled</th>
-                <th style={{ textAlign: 'right', padding: '8px 14px', width: '120px' }}>Created</th>
-                <th style={{ textAlign: 'right', padding: '8px 14px', width: '70px' }}></th>
+                <th style={{ textAlign: 'center', padding: '8px 10px', width: 80 }}>Status</th>
+                <th style={{ textAlign: 'center', padding: '8px 10px', width: 60 }}>Priority</th>
+                <th style={{ textAlign: 'right', padding: '8px 14px', width: 120 }}>Scheduled</th>
+                <th style={{ textAlign: 'right', padding: '8px 14px', width: 120 }}>Created</th>
+                <th style={{ textAlign: 'right', padding: '8px 14px', width: 70 }}></th>
               </tr>
             </thead>
             <tbody>
-              {filteredTasks.map((task) => (
-                <tr
-                  key={task.id}
-                  onClick={() => setSelected(selected?.id === task.id ? null : task)}
-                  style={{
-                    cursor: 'pointer',
-                    borderBottom: '1px solid var(--separator)',
-                    backgroundColor: selected?.id === task.id ? 'rgba(255,255,255,0.03)' : undefined,
-                  }}
-                  className="file-row"
-                >
-                  <td style={{ padding: '8px 14px' }}>
-                    <div>{truncate(task.description, 80)}</div>
-                    {task.reason && (
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {truncate(task.reason, 60)}
-                      </div>
+              {filteredTasks.map((task) => {
+                const isExpanded = selected?.id === task.id;
+                return (
+                  <React.Fragment key={task.id}>
+                    <tr
+                      onClick={() => setSelected(isExpanded ? null : task)}
+                      style={{
+                        cursor: 'pointer',
+                        borderBottom: isExpanded ? 'none' : '1px solid var(--separator)',
+                        backgroundColor: isExpanded ? 'rgba(255,255,255,0.03)' : undefined,
+                      }}
+                      className="file-row"
+                    >
+                      <td style={{ padding: '8px 14px' }}>
+                        <div>
+                          <span style={{ display: 'inline-block', width: '14px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                            {isExpanded ? '\u25BC' : '\u25B6'}
+                          </span>
+                          {truncate(task.description, 80)}
+                        </div>
+                        {task.reason && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', paddingLeft: '14px' }}>
+                            {truncate(task.reason, 60)}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                        <StatusBadge status={task.status} />
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px 10px' }}>
+                        <PriorityDots priority={task.priority} />
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '8px 14px', color: 'var(--text-secondary)' }}>
+                        {formatDate(task.scheduledFor)}
+                      </td>
+                      <td style={{ textAlign: 'right', padding: '8px 14px', color: 'var(--text-secondary)' }}>
+                        {formatDate(task.createdAt)}
+                      </td>
+                      <td
+                        style={{ textAlign: 'right', padding: '8px 14px', whiteSpace: 'nowrap' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {(task.status === 'pending' || task.status === 'in_progress') && (
+                          <button className="icon-button" onClick={() => cancelTask(task.id)} title="Cancel">
+                            &#10006;
+                          </button>
+                        )}
+                        <button className="icon-button" onClick={() => deleteTask(task.id)} title="Delete">
+                          &#128465;
+                        </button>
+                      </td>
+                    </tr>
+                    {isExpanded && selected && (
+                      <tr style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderBottom: '1px solid var(--separator)' }}>
+                        <td colSpan={6} style={{ padding: '0 14px 14px 14px', overflow: 'hidden' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '6px 12px', fontSize: '13px', padding: '10px 0' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>ID</span>
+                            <code style={{ fontSize: '11px', wordBreak: 'break-all' }}>{selected.id}</code>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Status</span>
+                            <span><StatusBadge status={selected.status} /></span>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Priority</span>
+                            <span>{selected.priority}/10</span>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Description</span>
+                            <span>{selected.description}</span>
+
+                            {selected.reason && (
+                              <>
+                                <span style={{ color: 'var(--text-secondary)' }}>Reason</span>
+                                <span>{selected.reason}</span>
+                              </>
+                            )}
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Created by</span>
+                            <span>{selected.createdBy || '\u2014'}</span>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Created</span>
+                            <span>{formatDate(selected.createdAt)}</span>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Scheduled for</span>
+                            <span>{formatDate(selected.scheduledFor)}</span>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Started</span>
+                            <span>{formatDate(selected.startedAt)}</span>
+
+                            <span style={{ color: 'var(--text-secondary)' }}>Completed</span>
+                            <span>{formatDate(selected.completedAt)}</span>
+
+                            {selected.dependencies.length > 0 && (
+                              <>
+                                <span style={{ color: 'var(--text-secondary)' }}>Depends on</span>
+                                <span style={{ fontSize: '11px' }}>{selected.dependencies.length} task(s)</span>
+                              </>
+                            )}
+
+                            {selected.dependents.length > 0 && (
+                              <>
+                                <span style={{ color: 'var(--text-secondary)' }}>Dependents</span>
+                                <span style={{ fontSize: '11px' }}>{selected.dependents.length} task(s)</span>
+                              </>
+                            )}
+                          </div>
+
+                          {selected.payload && (
+                            <div style={{ marginTop: '4px' }}>
+                              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Payload</div>
+                              <pre
+                                style={{
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'rgba(0,0,0,0.2)',
+                                  fontSize: '11px',
+                                  overflow: 'auto',
+                                  maxHeight: '150px',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {(() => {
+                                  try {
+                                    return JSON.stringify(JSON.parse(selected.payload!), null, 2);
+                                  } catch {
+                                    return selected.payload;
+                                  }
+                                })()}
+                              </pre>
+                            </div>
+                          )}
+
+                          {selected.result && (
+                            <div style={{ marginTop: '12px' }}>
+                              <div style={{ fontSize: '12px', color: '#5cb85c', marginBottom: '4px' }}>Result</div>
+                              <pre
+                                style={{
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'rgba(0,0,0,0.2)',
+                                  fontSize: '11px',
+                                  overflow: 'auto',
+                                  maxHeight: '200px',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {truncate(selected.result, 2000)}
+                              </pre>
+                            </div>
+                          )}
+
+                          {selected.error && (
+                            <div style={{ marginTop: '12px' }}>
+                              <div style={{ fontSize: '12px', color: '#d9534f', marginBottom: '4px' }}>Error</div>
+                              <pre
+                                style={{
+                                  padding: '8px',
+                                  borderRadius: '4px',
+                                  backgroundColor: 'rgba(100,0,0,0.15)',
+                                  fontSize: '11px',
+                                  overflow: 'auto',
+                                  maxHeight: '150px',
+                                  margin: 0,
+                                  color: '#f99',
+                                }}
+                              >
+                                {selected.error}
+                              </pre>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td style={{ textAlign: 'center', padding: '8px 10px' }}>
-                    <StatusBadge status={task.status} />
-                  </td>
-                  <td style={{ textAlign: 'center', padding: '8px 10px' }}>
-                    <PriorityDots priority={task.priority} />
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '8px 14px', color: 'var(--text-secondary)' }}>
-                    {formatDate(task.scheduledFor)}
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '8px 14px', color: 'var(--text-secondary)' }}>
-                    {formatDate(task.createdAt)}
-                  </td>
-                  <td
-                    style={{ textAlign: 'right', padding: '8px 14px', whiteSpace: 'nowrap' }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {(task.status === 'pending' || task.status === 'in_progress') && (
-                      <button className="icon-button" onClick={() => cancelTask(task.id)} title="Cancel">
-                        &#10006;
-                      </button>
-                    )}
-                    <button className="icon-button" onClick={() => deleteTask(task.id)} title="Delete">
-                      &#128465;
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Detail panel */}
-      {selected && (
-        <div className="card" style={{ marginTop: '14px', padding: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h2 style={{ margin: 0, fontSize: '14px' }}>Task Detail</h2>
-            <button
-              style={{ padding: '3px 10px', fontSize: '12px', opacity: 0.7 }}
-              onClick={() => setSelected(null)}
-            >
-              Close
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '6px 12px', fontSize: '13px' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>ID</span>
-            <code style={{ fontSize: '11px', wordBreak: 'break-all' }}>{selected.id}</code>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Status</span>
-            <span><StatusBadge status={selected.status} /></span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Priority</span>
-            <span>{selected.priority}/10</span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Description</span>
-            <span>{selected.description}</span>
-
-            {selected.reason && (
-              <>
-                <span style={{ color: 'var(--text-secondary)' }}>Reason</span>
-                <span>{selected.reason}</span>
-              </>
-            )}
-
-            <span style={{ color: 'var(--text-secondary)' }}>Created by</span>
-            <span>{selected.createdBy || '—'}</span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Created</span>
-            <span>{formatDate(selected.createdAt)}</span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Scheduled for</span>
-            <span>{formatDate(selected.scheduledFor)}</span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Started</span>
-            <span>{formatDate(selected.startedAt)}</span>
-
-            <span style={{ color: 'var(--text-secondary)' }}>Completed</span>
-            <span>{formatDate(selected.completedAt)}</span>
-
-            {selected.dependencies.length > 0 && (
-              <>
-                <span style={{ color: 'var(--text-secondary)' }}>Depends on</span>
-                <span style={{ fontSize: '11px' }}>{selected.dependencies.length} task(s)</span>
-              </>
-            )}
-
-            {selected.dependents.length > 0 && (
-              <>
-                <span style={{ color: 'var(--text-secondary)' }}>Dependents</span>
-                <span style={{ fontSize: '11px' }}>{selected.dependents.length} task(s)</span>
-              </>
-            )}
-          </div>
-
-          {selected.payload && (
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Payload</div>
-              <pre
-                style={{
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(0,0,0,0.2)',
-                  fontSize: '11px',
-                  overflow: 'auto',
-                  maxHeight: '150px',
-                  margin: 0,
-                }}
-              >
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(selected.payload!), null, 2);
-                  } catch {
-                    return selected.payload;
-                  }
-                })()}
-              </pre>
-            </div>
-          )}
-
-          {selected.result && (
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ fontSize: '12px', color: '#5cb85c', marginBottom: '4px' }}>Result</div>
-              <pre
-                style={{
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(0,0,0,0.2)',
-                  fontSize: '11px',
-                  overflow: 'auto',
-                  maxHeight: '200px',
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {truncate(selected.result, 2000)}
-              </pre>
-            </div>
-          )}
-
-          {selected.error && (
-            <div style={{ marginTop: '12px' }}>
-              <div style={{ fontSize: '12px', color: '#d9534f', marginBottom: '4px' }}>Error</div>
-              <pre
-                style={{
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(100,0,0,0.15)',
-                  fontSize: '11px',
-                  overflow: 'auto',
-                  maxHeight: '150px',
-                  margin: 0,
-                  color: '#f99',
-                }}
-              >
-                {selected.error}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
