@@ -76,6 +76,9 @@ export type {
   ToolResult,
   ToolScope,
   ToolCategory,
+  // Plugin event hooks
+  PluginMessageEvent,
+  PluginCallbackEvent,
 } from "./types.js";
 
 // ─── Errors ──────────────────────────────────────────────────────

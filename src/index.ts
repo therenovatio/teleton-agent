@@ -13,7 +13,7 @@ import { TELEGRAM_CONNECTION_RETRIES, TELEGRAM_FLOOD_SLEEP_THRESHOLD } from "./c
 import { join } from "path";
 import { ToolRegistry } from "./agent/tools/registry.js";
 import { registerAllTools } from "./agent/tools/register-all.js";
-import { loadEnhancedPlugins } from "./agent/tools/plugin-loader.js";
+import { loadEnhancedPlugins, type PluginModuleWithHooks } from "./agent/tools/plugin-loader.js";
 import type { SDKDependencies } from "./sdk/index.js";
 import { getProviderMetadata, type SupportedProvider } from "./config/providers.js";
 import { loadModules } from "./agent/tools/module-loader.js";
@@ -229,6 +229,9 @@ ${blue}  ┌──────────────────────�
       }
       throw error;
     }
+
+    // Collect plugin event hooks and wire them up
+    this.wirePluginEventHooks();
 
     // Start plugin hot-reload watcher (dev mode)
     if (this.config.dev.hot_reload) {
@@ -543,6 +546,87 @@ ${blue}  ┌──────────────────────�
       } catch (e) {
         // Ignore if we can't update task
       }
+    }
+  }
+
+  /**
+   * Collect plugin onMessage/onCallbackQuery hooks and register them
+   */
+  private wirePluginEventHooks(): void {
+    const messageHooks: Array<
+      (e: import("@teleton-agent/sdk").PluginMessageEvent) => Promise<void>
+    > = [];
+    const callbackHooks: Array<{
+      pluginName: string;
+      hook: (e: import("@teleton-agent/sdk").PluginCallbackEvent) => Promise<void>;
+    }> = [];
+
+    for (const mod of this.modules) {
+      const withHooks = mod as PluginModuleWithHooks;
+      if (withHooks.onMessage) {
+        messageHooks.push(withHooks.onMessage);
+      }
+      if (withHooks.onCallbackQuery) {
+        callbackHooks.push({ pluginName: mod.name, hook: withHooks.onCallbackQuery });
+      }
+    }
+
+    // Pass message hooks to the handler
+    if (messageHooks.length > 0) {
+      this.messageHandler.setPluginMessageHooks(messageHooks);
+      console.log(`🔗 ${messageHooks.length} plugin onMessage hook(s) registered`);
+    }
+
+    // Register callback query handler if any plugins have onCallbackQuery
+    if (callbackHooks.length > 0) {
+      this.bridge.getClient().addCallbackQueryHandler(async (update: any) => {
+        const queryId = update.queryId;
+        const data = update.data?.toString() || "";
+        const parts = data.split(":");
+        const action = parts[0];
+        const params = parts.slice(1);
+
+        const chatId =
+          update.peer?.channelId?.toString() ??
+          update.peer?.chatId?.toString() ??
+          update.peer?.userId?.toString() ??
+          "";
+        const messageId = update.msgId || 0;
+        const userId = Number(update.userId);
+
+        const answer = async (text?: string, alert = false): Promise<void> => {
+          try {
+            await this.bridge.getClient().answerCallbackQuery(queryId, { message: text, alert });
+          } catch (err) {
+            console.error(
+              "❌ Failed to answer callback query:",
+              err instanceof Error ? err.message : err
+            );
+          }
+        };
+
+        const event: import("@teleton-agent/sdk").PluginCallbackEvent = {
+          data,
+          action,
+          params,
+          chatId,
+          messageId,
+          userId,
+          answer,
+        };
+
+        for (const { pluginName, hook } of callbackHooks) {
+          try {
+            await hook(event);
+          } catch (err) {
+            console.error(
+              `❌ [${pluginName}] onCallbackQuery error:`,
+              err instanceof Error ? err.message : err
+            );
+          }
+        }
+      });
+      console.log(`🔗 ${callbackHooks.length} plugin onCallbackQuery hook(s) registered`);
     }
   }
 

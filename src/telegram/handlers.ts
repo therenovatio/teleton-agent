@@ -16,6 +16,7 @@ import {
 import type { ToolContext } from "../agent/tools/types.js";
 import { TELEGRAM_SEND_TOOLS } from "../constants/tools.js";
 import { verbose } from "../utils/logger.js";
+import type { PluginMessageEvent } from "@teleton-agent/sdk";
 
 export interface MessageContext {
   message: TelegramMessage;
@@ -119,6 +120,7 @@ export class MessageHandler {
   private pendingHistory: PendingHistory;
   private db: Database.Database;
   private chatQueue: ChatQueue = new ChatQueue();
+  private pluginMessageHooks: Array<(e: PluginMessageEvent) => Promise<void>> = [];
 
   constructor(
     bridge: TelegramBridge,
@@ -149,6 +151,10 @@ export class MessageHandler {
 
   setOwnUserId(userId: string | undefined): void {
     this.ownUserId = userId;
+  }
+
+  setPluginMessageHooks(hooks: Array<(e: PluginMessageEvent) => Promise<void>>): void {
+    this.pluginMessageHooks = hooks;
   }
 
   async drain(): Promise<void> {
@@ -263,6 +269,28 @@ export class MessageHandler {
 
     // 1. Store incoming message to feed FIRST (even if we won't respond)
     await this.storeTelegramMessage(message, false);
+
+    // 1b. Fire plugin onMessage hooks (fire-and-forget, errors caught per plugin)
+    if (this.pluginMessageHooks.length > 0) {
+      const event: PluginMessageEvent = {
+        chatId: message.chatId,
+        senderId: message.senderId,
+        senderUsername: message.senderUsername,
+        text: message.text,
+        isGroup: message.isGroup,
+        hasMedia: message.hasMedia,
+        messageId: message.id,
+        timestamp: message.timestamp,
+      };
+      for (const hook of this.pluginMessageHooks) {
+        hook(event).catch((err) => {
+          console.error(
+            "❌ Plugin onMessage hook error:",
+            err instanceof Error ? err.message : err
+          );
+        });
+      }
+    }
 
     // 2. Analyze context (before locking)
     const context = this.analyzeMessage(message);

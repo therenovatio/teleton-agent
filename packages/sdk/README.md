@@ -69,8 +69,53 @@ The core platform loads plugins in a defined order. Each export is optional exce
 | `tools` | `SimpleToolDef[] \| (sdk: PluginSDK) => SimpleToolDef[]` | After migrate | Register tools the LLM can invoke |
 | `start` | `(ctx) => Promise<void>` | After bridge connects | Run background tasks, set up intervals |
 | `stop` | `() => Promise<void>` | On shutdown / hot-reload | Cleanup timers, close connections |
+| `onMessage` | `(event: PluginMessageEvent) => Promise<void>` | Every incoming message | React to messages without LLM involvement |
+| `onCallbackQuery` | `(event: PluginCallbackEvent) => Promise<void>` | Inline button press | Handle callback queries from inline keyboards |
 
 The `tools` export can be either a static array or a factory function receiving the SDK. The `start` function receives a context object with `db`, `config`, `pluginConfig`, and `log`. The SDK object passed to `tools` is **frozen** -- plugins cannot modify or extend it. Each plugin receives its own isolated database (if `migrate` is exported) and a sanitized config object with no API keys.
+
+### Event Hooks
+
+Plugins can export `onMessage` and `onCallbackQuery` to react to Telegram events directly, without going through the LLM agentic loop. These hooks are **fire-and-forget** — errors are caught per plugin and logged, so a failing hook never blocks message processing or other plugins.
+
+#### `onMessage`
+
+Called for every incoming message (DMs and groups), after the message is stored to the feed database. This fires regardless of whether the agent will respond to the message.
+
+```typescript
+import type { PluginMessageEvent } from "@teleton-agent/sdk";
+
+export async function onMessage(event: PluginMessageEvent) {
+  // Auto-moderation example: delete messages containing banned words
+  if (event.isGroup && /spam|scam/i.test(event.text)) {
+    console.log(`Flagged message ${event.messageId} from ${event.senderId}`);
+  }
+}
+```
+
+#### `onCallbackQuery`
+
+Called when a user presses an inline keyboard button. The `data` string is split on `:` into `action` (first segment) and `params` (remaining segments). **You must call `event.answer()`** to dismiss the loading spinner on the user's client.
+
+```typescript
+import type { PluginCallbackEvent } from "@teleton-agent/sdk";
+
+export async function onCallbackQuery(event: PluginCallbackEvent) {
+  // Button data format: "myplugin:action:param1:param2"
+  if (event.action !== "myplugin") return; // Not for this plugin
+
+  const [subAction, ...args] = event.params;
+
+  if (subAction === "confirm") {
+    await event.answer("Confirmed!", false); // Toast notification
+    // ... handle the confirmation
+  } else {
+    await event.answer("Unknown action", true); // Alert popup
+  }
+}
+```
+
+> **Tip:** Namespace your callback data with your plugin name (e.g. `"casino:bet:100"`) so multiple plugins can coexist without action collisions. All registered `onCallbackQuery` hooks receive every callback event — filter by `event.action` to handle only your own buttons.
 
 ## API Reference
 
@@ -322,6 +367,35 @@ type ToolCategory = "data-bearing" | "action";
 ```
 
 `data-bearing` tool results are subject to observation masking (token reduction on older results). `action` tool results are always preserved in full.
+
+---
+
+### Event Hook Types
+
+#### `PluginMessageEvent`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `chatId` | `string` | Telegram chat ID |
+| `senderId` | `number` | Sender's user ID |
+| `senderUsername` | `string?` | Sender's `@username` (without `@`) |
+| `text` | `string` | Message text |
+| `isGroup` | `boolean` | Whether this is a group chat |
+| `hasMedia` | `boolean` | Whether the message contains media |
+| `messageId` | `number` | Message ID |
+| `timestamp` | `Date` | Message timestamp |
+
+#### `PluginCallbackEvent`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `data` | `string` | Raw callback data string |
+| `action` | `string` | First segment of `data.split(":")` |
+| `params` | `string[]` | Remaining segments after action |
+| `chatId` | `string` | Chat ID where the button was pressed |
+| `messageId` | `number` | Message ID the button belongs to |
+| `userId` | `number` | User ID who pressed the button |
+| `answer` | `(text?: string, alert?: boolean) => Promise<void>` | Answer the callback query (dismisses spinner) |
 
 ## Error Handling
 

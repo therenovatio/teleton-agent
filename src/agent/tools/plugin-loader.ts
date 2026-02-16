@@ -35,7 +35,11 @@ import {
 } from "../../sdk/index.js";
 import type { PluginSDK } from "../../sdk/types.js";
 import { createSecretsSDK } from "../../sdk/secrets.js";
-import type { SecretDeclaration } from "@teleton-agent/sdk";
+import type {
+  SecretDeclaration,
+  PluginMessageEvent,
+  PluginCallbackEvent,
+} from "@teleton-agent/sdk";
 
 const PLUGIN_DATA_DIR = join(TELETON_ROOT, "plugins", "data");
 
@@ -45,6 +49,14 @@ interface RawPluginExports {
   migrate?: (db: Database.Database) => void;
   start?: (ctx: EnhancedPluginContext) => Promise<void>;
   stop?: () => Promise<void>;
+  onMessage?: (event: PluginMessageEvent) => Promise<void>;
+  onCallbackQuery?: (event: PluginCallbackEvent) => Promise<void>;
+}
+
+/** Extended PluginModule with event hooks (external plugins only) */
+export interface PluginModuleWithHooks extends PluginModule {
+  onMessage?: (event: PluginMessageEvent) => Promise<void>;
+  onCallbackQuery?: (event: PluginCallbackEvent) => Promise<void>;
 }
 
 interface EnhancedPluginContext extends Omit<PluginContext, "db" | "config"> {
@@ -62,7 +74,7 @@ export function adaptPlugin(
   config: Config,
   loadedModuleNames: string[],
   sdkDeps: SDKDependencies
-): PluginModule {
+): PluginModuleWithHooks {
   let manifest: PluginManifest | null = null;
   if (raw.manifest) {
     try {
@@ -133,9 +145,13 @@ export function adaptPlugin(
 
   const sanitizedConfig = sanitizeConfigForPlugins(config);
 
-  return {
+  const module: PluginModuleWithHooks = {
     name: pluginName,
     version: pluginVersion,
+
+    // Store event hooks from plugin exports
+    onMessage: typeof raw.onMessage === "function" ? raw.onMessage : undefined,
+    onCallbackQuery: typeof raw.onCallbackQuery === "function" ? raw.onCallbackQuery : undefined,
 
     configure() {},
 
@@ -270,6 +286,8 @@ export function adaptPlugin(
       }
     },
   };
+
+  return module;
 }
 
 // ─── Initial Plugin Loading ─────────────────────────────────────────
@@ -278,7 +296,7 @@ export async function loadEnhancedPlugins(
   config: Config,
   loadedModuleNames: string[],
   sdkDeps: SDKDependencies
-): Promise<PluginModule[]> {
+): Promise<PluginModuleWithHooks[]> {
   const pluginsDir = WORKSPACE_PATHS.PLUGINS_DIR;
 
   if (!existsSync(pluginsDir)) {
@@ -286,7 +304,7 @@ export async function loadEnhancedPlugins(
   }
 
   const entries = readdirSync(pluginsDir);
-  const modules: PluginModule[] = [];
+  const modules: PluginModuleWithHooks[] = [];
   const loadedNames = new Set<string>();
 
   // Phase 1: Discover plugin paths (synchronous)

@@ -1037,6 +1037,46 @@ export interface StorageSDK {
   clear(): void;
 }
 
+// ─── Plugin Event Types ─────────────────────────────────────────
+
+/** Event passed to plugin onMessage hooks */
+export interface PluginMessageEvent {
+  /** Telegram chat ID */
+  chatId: string;
+  /** Telegram user ID of the sender */
+  senderId: number;
+  /** Sender's @username (without @) */
+  senderUsername?: string;
+  /** Message text */
+  text: string;
+  /** Whether this is a group chat */
+  isGroup: boolean;
+  /** Whether the message contains media */
+  hasMedia: boolean;
+  /** Message ID */
+  messageId: number;
+  /** Message timestamp */
+  timestamp: Date;
+}
+
+/** Event passed to plugin onCallbackQuery hooks */
+export interface PluginCallbackEvent {
+  /** Raw callback data string */
+  data: string;
+  /** First segment of data split by ":" */
+  action: string;
+  /** Remaining segments after action */
+  params: string[];
+  /** Chat ID where the button was pressed */
+  chatId: string;
+  /** Message ID the button belongs to */
+  messageId: number;
+  /** User ID who pressed the button */
+  userId: number;
+  /** Answer the callback query (shows toast or alert to user) */
+  answer: (text?: string, alert?: boolean) => Promise<void>;
+}
+
 // ─── Plugin Definition Types ────────────────────────────────────
 
 /** Tool visibility scope for context-based filtering */
@@ -1044,6 +1084,25 @@ export type ToolScope = "always" | "dm-only" | "group-only" | "admin-only";
 
 /** Tool category for observation masking behavior */
 export type ToolCategory = "data-bearing" | "action";
+
+/**
+ * Context passed to plugin tool executors at runtime.
+ * Contains information about the current chat, sender, and services.
+ */
+export interface PluginToolContext {
+  /** Telegram chat ID where the tool was invoked */
+  chatId: string;
+  /** Telegram user ID of the sender */
+  senderId: number;
+  /** Whether this is a group chat (vs DM) */
+  isGroup: boolean;
+  /** TelegramBridge instance for Telegram operations */
+  bridge: unknown;
+  /** Plugin's isolated SQLite database */
+  db: unknown;
+  /** Sanitized bot config (no API keys) */
+  config?: Record<string, unknown>;
+}
 
 /** Result returned by a tool execution */
 export interface ToolResult {
@@ -1069,10 +1128,7 @@ export interface SimpleToolDef {
   /** JSON Schema for parameters (defaults to empty object) */
   parameters?: Record<string, unknown>;
   /** Tool executor function */
-  execute: (
-    params: Record<string, unknown>,
-    context: Record<string, unknown>
-  ) => Promise<ToolResult>;
+  execute: (params: Record<string, unknown>, context: PluginToolContext) => Promise<ToolResult>;
   /** Visibility scope (default: "always") */
   scope?: ToolScope;
   /** Tool category for masking behavior */
