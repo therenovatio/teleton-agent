@@ -10,16 +10,18 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files first (layer caching)
+# Copy dependency files and SDK workspace (needed for workspace resolution)
 COPY package.json package-lock.json ./
 COPY scripts/ scripts/
+COPY packages/sdk/package.json packages/sdk/
 
-# Install all deps (including devDependencies for build)
+# Install all deps (including devDependencies for build + SDK workspace)
 RUN npm ci
 
-# Copy source and build configs
+# Copy source, build configs, and full SDK source
 COPY tsconfig.json tsup.config.ts ./
 COPY src/ src/
+COPY packages/ packages/
 
 # Copy frontend source and install its deps
 COPY web/ web/
