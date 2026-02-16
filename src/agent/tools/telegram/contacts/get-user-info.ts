@@ -29,6 +29,7 @@ RETURNS:
 - Common chats count
 
 Use this to learn about traders, verify users, or gather intel.`,
+  category: "data-bearing",
   parameters: Type.Object({
     userId: Type.Optional(
       Type.String({

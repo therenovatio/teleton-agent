@@ -16,6 +16,7 @@ export const telegramGetChatInfoTool: Tool = {
   name: "telegram_get_chat_info",
   description:
     "Get detailed information about a Telegram chat, group, or channel. Returns title, description, member count, and other metadata. Use this to understand the context of a conversation.",
+  category: "data-bearing",
   parameters: Type.Object({
     chatId: Type.String({
       description:

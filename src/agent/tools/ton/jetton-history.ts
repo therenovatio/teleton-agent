@@ -11,6 +11,7 @@ export const jettonHistoryTool: Tool = {
   name: "jetton_history",
   description:
     "Get price history and performance data for a Jetton. Shows price changes over 24h, 7d, 30d periods, along with volume and market data. Useful for analyzing token trends.",
+  category: "data-bearing",
   parameters: Type.Object({
     jetton_address: Type.String({
       description: "Jetton master contract address (EQ... format)",

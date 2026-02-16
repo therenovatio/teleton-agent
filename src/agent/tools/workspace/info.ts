@@ -21,7 +21,7 @@ Returns:
 - Directory structure
 - File counts and sizes
 - Usage limits`,
-
+  category: "data-bearing",
   parameters: Type.Object({
     detailed: Type.Optional(
       Type.Boolean({

@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import type { TgUserRow } from "../types/db-rows.js";
 
 export interface TelegramUser {
   id: string;
@@ -64,15 +65,17 @@ export class UserStore {
   }
 
   getUser(id: string): TelegramUser | undefined {
-    const row = this.db.prepare(`SELECT * FROM tg_users WHERE id = ?`).get(id) as any;
+    const row = this.db.prepare(`SELECT * FROM tg_users WHERE id = ?`).get(id) as
+      | TgUserRow
+      | undefined;
 
     if (!row) return undefined;
 
     return {
       id: row.id,
-      username: row.username,
-      firstName: row.first_name,
-      lastName: row.last_name,
+      username: row.username ?? undefined,
+      firstName: row.first_name ?? undefined,
+      lastName: row.last_name ?? undefined,
       isBot: Boolean(row.is_bot),
       isAdmin: Boolean(row.is_admin),
       isAllowed: Boolean(row.is_allowed),
@@ -85,15 +88,15 @@ export class UserStore {
   getUserByUsername(username: string): TelegramUser | undefined {
     const row = this.db
       .prepare(`SELECT * FROM tg_users WHERE username = ?`)
-      .get(username.replace("@", "")) as any;
+      .get(username.replace("@", "")) as TgUserRow | undefined;
 
     if (!row) return undefined;
 
     return {
       id: row.id,
-      username: row.username,
-      firstName: row.first_name,
-      lastName: row.last_name,
+      username: row.username ?? undefined,
+      firstName: row.first_name ?? undefined,
+      lastName: row.last_name ?? undefined,
       isBot: Boolean(row.is_bot),
       isAdmin: Boolean(row.is_admin),
       isAllowed: Boolean(row.is_allowed),
@@ -160,13 +163,13 @@ export class UserStore {
       ORDER BY last_seen_at DESC
     `
       )
-      .all() as any[];
+      .all() as TgUserRow[];
 
     return rows.map((row) => ({
       id: row.id,
-      username: row.username,
-      firstName: row.first_name,
-      lastName: row.last_name,
+      username: row.username ?? undefined,
+      firstName: row.first_name ?? undefined,
+      lastName: row.last_name ?? undefined,
       isBot: Boolean(row.is_bot),
       isAdmin: Boolean(row.is_admin),
       isAllowed: Boolean(row.is_allowed),
@@ -185,13 +188,13 @@ export class UserStore {
       LIMIT ?
     `
       )
-      .all(limit) as any[];
+      .all(limit) as TgUserRow[];
 
     return rows.map((row) => ({
       id: row.id,
-      username: row.username,
-      firstName: row.first_name,
-      lastName: row.last_name,
+      username: row.username ?? undefined,
+      firstName: row.first_name ?? undefined,
+      lastName: row.last_name ?? undefined,
       isBot: Boolean(row.is_bot),
       isAdmin: Boolean(row.is_admin),
       isAllowed: Boolean(row.is_allowed),

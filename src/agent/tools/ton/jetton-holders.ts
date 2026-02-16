@@ -9,6 +9,7 @@ export const jettonHoldersTool: Tool = {
   name: "jetton_holders",
   description:
     "Get the top holders of a Jetton (token). Shows wallet addresses and their balances. Useful to analyze token distribution and identify whale wallets.",
+  category: "data-bearing",
   parameters: Type.Object({
     jetton_address: Type.String({
       description: "Jetton master contract address (EQ... or 0:... format)",

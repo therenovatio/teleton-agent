@@ -14,6 +14,7 @@ export const stonfiQuoteTool: Tool = {
   name: "stonfi_quote",
   description:
     "Get a price quote for a token swap WITHOUT executing it. Shows expected output, minimum output, price impact, and fees. Use this to preview a swap before committing. Use 'ton' as from_asset for TON, or jetton master address.",
+  category: "data-bearing",
   parameters: Type.Object({
     from_asset: Type.String({
       description: "Source asset: 'ton' for TON, or jetton master address (EQ... format)",

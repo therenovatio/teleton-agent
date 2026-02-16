@@ -4,6 +4,7 @@ import { getTonPrice } from "../../../ton/wallet-service.js";
 export const tonPriceTool: Tool = {
   name: "ton_price",
   description: "Get current TON cryptocurrency price in USD. Returns real-time market price.",
+  category: "data-bearing",
   parameters: Type.Object({}),
 };
 export const tonPriceExecutor: ToolExecutor<{}> = async (params, context): Promise<ToolResult> => {

@@ -17,6 +17,7 @@ export const telegramGetCommonChatsTool: Tool = {
   name: "telegram_get_common_chats",
   description:
     "Find groups and channels that you share with another Telegram user. Use this to understand mutual connections, verify relationships, or discover shared communities. Returns list of common chats with their names and IDs.",
+  category: "data-bearing",
   parameters: Type.Object({
     userId: Type.String({
       description:

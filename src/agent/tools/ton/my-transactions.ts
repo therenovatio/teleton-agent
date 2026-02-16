@@ -14,6 +14,7 @@ export const tonMyTransactionsTool: Tool = {
   name: "ton_my_transactions",
   description:
     "Get your own wallet's transaction history. Returns transactions with type (ton_received, ton_sent, jetton_received, jetton_sent, nft_received, nft_sent, gas_refund), amount, counterparty, and explorer link.",
+  category: "data-bearing",
   parameters: Type.Object({
     limit: Type.Optional(
       Type.Number({

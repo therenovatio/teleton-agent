@@ -16,6 +16,7 @@ export const telegramGetMyStickersTool: Tool = {
   name: "telegram_get_my_stickers",
   description:
     "List all sticker packs that are installed/saved to your account. Returns your personal sticker collection with shortName, title, and count for each pack. Use this to see what stickers you already have before sending. To send a sticker from your collection: use telegram_send_sticker with the shortName + stickerIndex.",
+  category: "data-bearing",
   parameters: Type.Object({
     limit: Type.Optional(
       Type.Number({

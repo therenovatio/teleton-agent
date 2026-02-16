@@ -19,6 +19,7 @@ Filters:
 - limit: Max results (default 20)
 
 Returns summary of each deal with ID, status, parties, trade details, timestamps.`,
+  category: "data-bearing",
   parameters: Type.Object({
     status: Type.Optional(
       Type.String({

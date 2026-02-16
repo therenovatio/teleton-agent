@@ -9,6 +9,7 @@ export const telegramGetFoldersTool: Tool = {
   name: "telegram_get_folders",
   description:
     "List all your chat folders (also called 'filters' in Telegram). Folders organize chats into categories like 'Work', 'Personal', 'Groups', etc. Returns folder IDs, names, and included chat types. Use this to see your organization structure before adding chats to folders with telegram_add_chat_to_folder.",
+  category: "data-bearing",
   parameters: Type.Object({}), // No parameters needed
 };
 

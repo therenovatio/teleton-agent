@@ -18,6 +18,7 @@ export const telegramSearchMessagesTool: Tool = {
   name: "telegram_search_messages",
   description:
     "Search for messages in a Telegram chat by text query. Use this to find past conversations, retrieve specific information, or locate messages containing keywords. Returns matching messages with their content and metadata.",
+  category: "data-bearing",
   parameters: Type.Object({
     chatId: Type.String({
       description: "Numeric chat ID (e.g. '123456789') or @username. Never use display names.",

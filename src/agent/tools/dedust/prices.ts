@@ -18,6 +18,7 @@ export const dedustPricesTool: Tool = {
   name: "dedust_prices",
   description:
     "Get real-time token prices from DeDust DEX. Returns USD prices for TON, BTC, ETH, USDT, and other listed tokens. Optionally filter by symbol(s).",
+  category: "data-bearing",
   parameters: Type.Object({
     symbols: Type.Optional(
       Type.Array(

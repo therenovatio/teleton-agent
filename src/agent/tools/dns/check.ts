@@ -8,6 +8,7 @@ export const dnsCheckTool: Tool = {
   name: "dns_check",
   description:
     "Check if a .ton domain is available, in auction, or already owned. Returns status with relevant details (price estimates, current bids, owner info).",
+  category: "data-bearing",
   parameters: Type.Object({
     domain: Type.String({
       description: "Domain name to check (with or without .ton extension)",

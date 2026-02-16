@@ -30,6 +30,7 @@ export const visionAnalyzeTool: Tool = {
   name: "vision_analyze",
   description:
     "Analyze an image using Claude's vision capabilities. Can analyze images from Telegram messages OR from local workspace files. Use this when a user sends an image and asks you to describe, analyze, or understand its content. Returns Claude's analysis of the image.",
+  category: "data-bearing",
   parameters: Type.Object({
     chatId: Type.Optional(
       Type.String({

@@ -22,6 +22,7 @@ export const memoryReadTool: Tool = {
   name: "memory_read",
   description:
     "Read your memory files. Use 'persistent' for MEMORY.md, 'daily' for today's log, 'recent' for today+yesterday, or 'list' to see all available memory files.",
+  category: "data-bearing",
   parameters: Type.Object({
     target: Type.String({
       description:

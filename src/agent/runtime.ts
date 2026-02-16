@@ -246,7 +246,7 @@ export class AgentRuntime {
             chatId,
             includeAgentMemory: true,
             includeFeedHistory: true,
-            searchAllChats: true,
+            searchAllChats: !isGroup,
             maxRecentMessages: CONTEXT_MAX_RECENT_MESSAGES,
             maxRelevantChunks: CONTEXT_MAX_RELEVANT_CHUNKS,
           });

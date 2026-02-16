@@ -40,8 +40,8 @@ export class HybridSearch {
     } = {}
   ): Promise<HybridSearchResult[]> {
     const limit = options.limit ?? 10;
-    const vectorWeight = options.vectorWeight ?? 0.7;
-    const keywordWeight = options.keywordWeight ?? 0.3;
+    const vectorWeight = options.vectorWeight ?? 0.5;
+    const keywordWeight = options.keywordWeight ?? 0.5;
 
     const vectorResults = this.vectorEnabled
       ? this.vectorSearchKnowledge(queryEmbedding, Math.ceil(limit * 3))
@@ -63,8 +63,8 @@ export class HybridSearch {
     } = {}
   ): Promise<HybridSearchResult[]> {
     const limit = options.limit ?? 10;
-    const vectorWeight = options.vectorWeight ?? 0.7;
-    const keywordWeight = options.keywordWeight ?? 0.3;
+    const vectorWeight = options.vectorWeight ?? 0.5;
+    const keywordWeight = options.keywordWeight ?? 0.5;
 
     const vectorResults = this.vectorEnabled
       ? this.vectorSearchMessages(queryEmbedding, Math.ceil(limit * 3), options.chatId)

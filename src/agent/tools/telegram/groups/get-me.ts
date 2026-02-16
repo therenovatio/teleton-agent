@@ -9,6 +9,7 @@ export const telegramGetMeTool: Tool = {
   name: "telegram_get_me",
   description:
     "Get information about yourself (the currently authenticated Telegram account). Returns your user ID, username, name, phone number, and whether you're a bot. Use this for self-awareness and to understand your own account details.",
+  category: "data-bearing",
   parameters: Type.Object({}), // No parameters needed
 };
 

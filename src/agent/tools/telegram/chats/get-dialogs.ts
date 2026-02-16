@@ -17,6 +17,7 @@ export const telegramGetDialogsTool: Tool = {
   name: "telegram_get_dialogs",
   description:
     "Get the list of all your Telegram conversations (DMs, groups, channels). Returns chat info with unread message counts. Use this to see your inbox and find chats that need attention.",
+  category: "data-bearing",
   parameters: Type.Object({
     limit: Type.Optional(
       Type.Number({

@@ -28,7 +28,7 @@ Your workspace is at ~/.teleton/workspace/ and contains:
 - temp/ (temporary files)
 
 You can ONLY access files within this workspace. Files outside (config.yaml, wallet.json, etc.) are protected.`,
-
+  category: "data-bearing",
   parameters: Type.Object({
     path: Type.Optional(
       Type.String({

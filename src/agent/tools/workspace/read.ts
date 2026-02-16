@@ -25,7 +25,7 @@ Examples:
 - Read your memory: path="MEMORY.md"
 - Read today's log: path="memory/2024-01-15.md"
 - Read downloaded image info: path="downloads/image.jpg" (will return metadata only)`,
-
+  category: "data-bearing",
   parameters: Type.Object({
     path: Type.String({
       description: "Path to file (relative to workspace root)",

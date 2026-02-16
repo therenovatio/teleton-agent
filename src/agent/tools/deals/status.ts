@@ -18,6 +18,7 @@ Shows:
 - Timestamps (created, expires, verified, completed)
 - Payment/transfer tracking info (TX hashes, msgIds)
 - Profit calculation`,
+  category: "data-bearing",
   parameters: Type.Object({
     dealId: Type.String({ description: "Deal ID to check status for" }),
   }),

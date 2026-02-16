@@ -10,6 +10,7 @@ export const jettonPriceTool: Tool = {
   name: "jetton_price",
   description:
     "Get the current price of a Jetton (token) in USD and TON, along with 24h, 7d, and 30d price changes. Useful to check token value before swapping or to monitor investments.",
+  category: "data-bearing",
   parameters: Type.Object({
     jetton_address: Type.String({
       description: "Jetton master contract address (EQ... or 0:... format)",

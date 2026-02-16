@@ -28,6 +28,7 @@ Use this to:
 - Check if a trader's username is valid
 - Verify channel/group names
 - See if a username is available`,
+  category: "data-bearing",
   parameters: Type.Object({
     username: Type.String({
       description: "Username to check (with or without @)",

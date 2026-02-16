@@ -31,7 +31,7 @@ Examples:
 - "What gifts did I sell this week?"
 - "Show all profitable TON trades"
 - "What's my win rate on crypto trades?"`,
-
+  category: "data-bearing",
   parameters: Type.Object({
     type: Type.Optional(
       Type.Union(

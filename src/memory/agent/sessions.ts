@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import type { EmbeddingProvider } from "../embeddings/provider.js";
 import { hashText, serializeEmbedding } from "../embeddings/index.js";
 import { randomUUID } from "crypto";
+import type { SessionRow } from "../types/db-rows.js";
 
 export interface Session {
   id: string;
@@ -75,7 +76,9 @@ export class SessionStore {
   }
 
   getSession(id: string): Session | undefined {
-    const row = this.db.prepare(`SELECT * FROM sessions WHERE id = ?`).get(id) as any;
+    const row = this.db.prepare(`SELECT * FROM sessions WHERE id = ?`).get(id) as
+      | SessionRow
+      | undefined;
 
     if (!row) return undefined;
 
@@ -84,7 +87,7 @@ export class SessionStore {
       chatId: row.chat_id,
       startedAt: new Date(row.started_at * 1000),
       endedAt: row.ended_at ? new Date(row.ended_at * 1000) : undefined,
-      summary: row.summary,
+      summary: row.summary ?? undefined,
       messageCount: row.message_count,
       tokensUsed: row.tokens_used,
     };
@@ -99,14 +102,14 @@ export class SessionStore {
       ORDER BY started_at DESC
     `
       )
-      .all() as any[];
+      .all() as SessionRow[];
 
     return rows.map((row) => ({
       id: row.id,
       chatId: row.chat_id,
       startedAt: new Date(row.started_at * 1000),
       endedAt: undefined,
-      summary: row.summary,
+      summary: row.summary ?? undefined,
       messageCount: row.message_count,
       tokensUsed: row.tokens_used,
     }));
@@ -122,14 +125,14 @@ export class SessionStore {
       LIMIT ?
     `
       )
-      .all(chatId, limit) as any[];
+      .all(chatId, limit) as SessionRow[];
 
     return rows.map((row) => ({
       id: row.id,
       chatId: row.chat_id,
       startedAt: new Date(row.started_at * 1000),
       endedAt: row.ended_at ? new Date(row.ended_at * 1000) : undefined,
-      summary: row.summary,
+      summary: row.summary ?? undefined,
       messageCount: row.message_count,
       tokensUsed: row.tokens_used,
     }));

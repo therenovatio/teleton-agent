@@ -32,6 +32,7 @@ export const dexQuoteTool: Tool = {
   name: "dex_quote",
   description:
     "Smart router that compares quotes from STON.fi and DeDust DEX to find the best price. Returns comparison table with expected outputs, fees, and recommends the best DEX for your swap. Use 'ton' for TON or jetton master address.",
+  category: "data-bearing",
   parameters: Type.Object({
     from_asset: Type.String({
       description: "Source asset: 'ton' for TON, or jetton master address (EQ... format)",

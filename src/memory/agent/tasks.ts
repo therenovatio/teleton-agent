@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "crypto";
+import type { TaskRow } from "../types/db-rows.js";
 
 export type TaskStatus = "pending" | "in_progress" | "done" | "failed" | "cancelled";
 
@@ -147,7 +148,7 @@ export class TaskStore {
   }
 
   getTask(id: string): Task | undefined {
-    const row = this.db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as any;
+    const row = this.db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as TaskRow | undefined;
 
     if (!row) return undefined;
 
@@ -156,16 +157,16 @@ export class TaskStore {
       description: row.description,
       status: row.status as TaskStatus,
       priority: row.priority,
-      createdBy: row.created_by,
+      createdBy: row.created_by ?? undefined,
       createdAt: new Date(row.created_at * 1000),
       startedAt: row.started_at ? new Date(row.started_at * 1000) : undefined,
       completedAt: row.completed_at ? new Date(row.completed_at * 1000) : undefined,
-      result: row.result,
-      error: row.error,
+      result: row.result ?? undefined,
+      error: row.error ?? undefined,
       scheduledFor: row.scheduled_for ? new Date(row.scheduled_for * 1000) : undefined,
-      payload: row.payload,
-      reason: row.reason,
-      scheduledMessageId: row.scheduled_message_id,
+      payload: row.payload ?? undefined,
+      reason: row.reason ?? undefined,
+      scheduledMessageId: row.scheduled_message_id ?? undefined,
     };
   }
 
@@ -185,23 +186,23 @@ export class TaskStore {
 
     sql += ` ORDER BY priority DESC, created_at ASC`;
 
-    const rows = this.db.prepare(sql).all(...params) as any[];
+    const rows = this.db.prepare(sql).all(...params) as TaskRow[];
 
     return rows.map((row) => ({
       id: row.id,
       description: row.description,
       status: row.status as TaskStatus,
       priority: row.priority,
-      createdBy: row.created_by,
+      createdBy: row.created_by ?? undefined,
       createdAt: new Date(row.created_at * 1000),
       startedAt: row.started_at ? new Date(row.started_at * 1000) : undefined,
       completedAt: row.completed_at ? new Date(row.completed_at * 1000) : undefined,
-      result: row.result,
-      error: row.error,
+      result: row.result ?? undefined,
+      error: row.error ?? undefined,
       scheduledFor: row.scheduled_for ? new Date(row.scheduled_for * 1000) : undefined,
-      payload: row.payload,
-      reason: row.reason,
-      scheduledMessageId: row.scheduled_message_id,
+      payload: row.payload ?? undefined,
+      reason: row.reason ?? undefined,
+      scheduledMessageId: row.scheduled_message_id ?? undefined,
     }));
   }
 
@@ -214,23 +215,23 @@ export class TaskStore {
       ORDER BY priority DESC, created_at ASC
     `
       )
-      .all() as any[];
+      .all() as TaskRow[];
 
     return rows.map((row) => ({
       id: row.id,
       description: row.description,
       status: row.status as TaskStatus,
       priority: row.priority,
-      createdBy: row.created_by,
+      createdBy: row.created_by ?? undefined,
       createdAt: new Date(row.created_at * 1000),
       startedAt: row.started_at ? new Date(row.started_at * 1000) : undefined,
       completedAt: row.completed_at ? new Date(row.completed_at * 1000) : undefined,
-      result: row.result,
-      error: row.error,
+      result: row.result ?? undefined,
+      error: row.error ?? undefined,
       scheduledFor: row.scheduled_for ? new Date(row.scheduled_for * 1000) : undefined,
-      payload: row.payload,
-      reason: row.reason,
-      scheduledMessageId: row.scheduled_message_id,
+      payload: row.payload ?? undefined,
+      reason: row.reason ?? undefined,
+      scheduledMessageId: row.scheduled_message_id ?? undefined,
     }));
   }
 

@@ -387,7 +387,9 @@ export function runMigrations(db: Database.Database): void {
       addColumnIfNotExists("sessions", "provider", "TEXT");
       addColumnIfNotExists("sessions", "last_reset_date", "TEXT");
 
-      const sessions = db.prepare("SELECT started_at FROM sessions LIMIT 1").all() as any[];
+      const sessions = db.prepare("SELECT started_at FROM sessions LIMIT 1").all() as Array<{
+        started_at: number;
+      }>;
       if (sessions.length > 0 && sessions[0].started_at < 1000000000000) {
         db.exec(
           "UPDATE sessions SET started_at = started_at * 1000 WHERE started_at < 1000000000000"

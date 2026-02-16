@@ -23,6 +23,7 @@ export const stonfiSearchTool: Tool = {
   name: "stonfi_search",
   description:
     "Search for Jettons (tokens) by name or symbol. Returns a list of matching tokens with their addresses, useful for finding a token's address before swapping or checking prices. Search is case-insensitive.",
+  category: "data-bearing",
   parameters: Type.Object({
     query: Type.String({
       description: "Search query - token name or symbol (e.g., 'usdt', 'scale', 'not')",

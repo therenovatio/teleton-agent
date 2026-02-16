@@ -17,6 +17,7 @@ export const telegramGetHistoryTool: Tool = {
   name: "telegram_get_history",
   description:
     "Retrieve message history from a Telegram chat. Use this to read past messages and understand conversation context.",
+  category: "data-bearing",
   parameters: Type.Object({
     chatId: Type.String({
       description: "Numeric chat ID (e.g. '123456789') or @username. Never use display names.",
