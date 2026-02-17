@@ -15,6 +15,7 @@ import { tools as stonfiTools } from "./stonfi/index.js";
 import { tools as dedustTools } from "./dedust/index.js";
 import { tools as journalTools } from "./journal/index.js";
 import { tools as workspaceTools } from "./workspace/index.js";
+import { tools as webTools } from "./web/index.js";
 
 const ALL_CATEGORIES: ToolEntry[][] = [
   telegramTools,
@@ -24,6 +25,7 @@ const ALL_CATEGORIES: ToolEntry[][] = [
   dedustTools,
   journalTools,
   workspaceTools,
+  webTools,
 ];
 
 export function registerAllTools(registry: ToolRegistry): void {

@@ -92,6 +92,14 @@ export function loadConfig(configPath: string = DEFAULT_CONFIG_PATH): Config {
     config.webui.host = process.env.TELETON_WEBUI_HOST;
   }
 
+  // Optional API key overrides
+  if (process.env.TELETON_TAVILY_API_KEY) {
+    config.tavily_api_key = process.env.TELETON_TAVILY_API_KEY;
+  }
+  if (process.env.TELETON_TONAPI_KEY) {
+    config.tonapi_key = process.env.TELETON_TONAPI_KEY;
+  }
+
   return config;
 }
 

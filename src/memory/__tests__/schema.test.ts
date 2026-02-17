@@ -1059,7 +1059,7 @@ describe("Memory Schema", () => {
     });
 
     it("CURRENT_SCHEMA_VERSION is set to expected value", () => {
-      expect(CURRENT_SCHEMA_VERSION).toBe("1.10.1");
+      expect(CURRENT_SCHEMA_VERSION).toBe("1.11.0");
     });
   });
 

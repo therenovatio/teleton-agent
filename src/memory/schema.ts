@@ -303,7 +303,7 @@ export function setSchemaVersion(db: Database.Database, version: string): void {
   ).run(version);
 }
 
-export const CURRENT_SCHEMA_VERSION = "1.10.1";
+export const CURRENT_SCHEMA_VERSION = "1.11.0";
 
 export function runMigrations(db: Database.Database): void {
   const currentVersion = getSchemaVersion(db);
@@ -467,6 +467,46 @@ export function runMigrations(db: Database.Database): void {
       console.log("✅ Migration 1.10.1 complete: tool_config CHECK constraint updated");
     } catch (error) {
       console.error("❌ Migration 1.10.1 failed:", error);
+      throw error;
+    }
+  }
+
+  if (!currentVersion || versionLessThan(currentVersion, "1.11.0")) {
+    console.log("🔄 Running migration 1.11.0: Add tool_index tables for Tool RAG");
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tool_index (
+          name TEXT PRIMARY KEY,
+          description TEXT NOT NULL,
+          search_text TEXT NOT NULL,
+          updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        );
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS tool_index_fts USING fts5(
+          search_text,
+          name UNINDEXED,
+          content='tool_index',
+          content_rowid='rowid'
+        );
+
+        CREATE TRIGGER IF NOT EXISTS tool_index_fts_insert AFTER INSERT ON tool_index BEGIN
+          INSERT INTO tool_index_fts(rowid, search_text, name)
+          VALUES (new.rowid, new.search_text, new.name);
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS tool_index_fts_delete AFTER DELETE ON tool_index BEGIN
+          DELETE FROM tool_index_fts WHERE rowid = old.rowid;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS tool_index_fts_update AFTER UPDATE ON tool_index BEGIN
+          DELETE FROM tool_index_fts WHERE rowid = old.rowid;
+          INSERT INTO tool_index_fts(rowid, search_text, name)
+          VALUES (new.rowid, new.search_text, new.name);
+        END;
+      `);
+      console.log("✅ Migration 1.11.0 complete: tool_index tables created");
+    } catch (error) {
+      console.error("❌ Migration 1.11.0 failed:", error);
       throw error;
     }
   }

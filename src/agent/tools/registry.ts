@@ -17,6 +17,7 @@ import {
   saveToolConfig,
   type ToolConfig,
 } from "../../memory/tool-config.js";
+import type { ToolIndex } from "./tool-index.js";
 
 export class ToolRegistry {
   private tools: Map<string, RegisteredTool> = new Map();
@@ -27,6 +28,8 @@ export class ToolRegistry {
   private toolConfigs: Map<string, ToolConfig> = new Map(); // Runtime tool configurations
   private db: Database.Database | null = null;
   private pluginToolNames: Map<string, string[]> = new Map();
+  private toolIndex: ToolIndex | null = null;
+  private onToolsChangedCallbacks: Array<(removed: string[], added: PiAiTool[]) => void> = [];
 
   register<TParams = unknown>(
     tool: Tool,
@@ -348,7 +351,30 @@ export class ToolRegistry {
       names.push(tool.name);
     }
     this.pluginToolNames.set(pluginName, names);
+
+    // Seed new tools into DB config (if DB is initialized)
+    if (this.db) {
+      let seeded = false;
+      for (const name of names) {
+        if (!this.toolConfigs.has(name)) {
+          const defaultScope = this.scopes.get(name) ?? "always";
+          initializeToolConfig(this.db, name, true, defaultScope);
+          seeded = true;
+        }
+      }
+      if (seeded) {
+        this.toolConfigs = loadAllToolConfigs(this.db);
+      }
+    }
+
     this.toolArrayCache = null;
+
+    // Notify Tool RAG about new tools
+    if (names.length > 0) {
+      const addedTools = names.map((n) => this.tools.get(n)!.tool);
+      this.notifyToolsChanged([], addedTools);
+    }
+
     return names.length;
   }
 
@@ -397,6 +423,13 @@ export class ToolRegistry {
     }
 
     this.toolArrayCache = null;
+
+    // Notify Tool RAG about replaced tools
+    const removedNames = [...previousNames].filter((n) => !names.includes(n));
+    const addedTools = names.map((n) => this.tools.get(n)!.tool);
+    if (removedNames.length > 0 || addedTools.length > 0) {
+      this.notifyToolsChanged(removedNames, addedTools);
+    }
   }
 
   /**
@@ -413,5 +446,93 @@ export class ToolRegistry {
       this.pluginToolNames.delete(pluginName);
     }
     this.toolArrayCache = null;
+  }
+
+  // ─── Tool RAG ──────────────────────────────────────────────────
+
+  setToolIndex(index: ToolIndex): void {
+    this.toolIndex = index;
+  }
+
+  getToolIndex(): ToolIndex | null {
+    return this.toolIndex;
+  }
+
+  onToolsChanged(callback: (removed: string[], added: PiAiTool[]) => void): void {
+    this.onToolsChangedCallbacks.push(callback);
+  }
+
+  private notifyToolsChanged(removed: string[], added: PiAiTool[]): void {
+    for (const cb of this.onToolsChangedCallbacks) {
+      try {
+        cb(removed, added);
+      } catch (error) {
+        console.error("[tool-rag] onToolsChanged callback error:", error);
+      }
+    }
+  }
+
+  /**
+   * Select tools using semantic RAG search on the user message.
+   * Falls back to getForContext() if search returns nothing.
+   */
+  async getForContextWithRAG(
+    query: string,
+    queryEmbedding: number[],
+    isGroup: boolean,
+    toolLimit: number | null,
+    chatId?: string,
+    isAdmin?: boolean
+  ): Promise<PiAiTool[]> {
+    // Get scope-filtered tools (no limit applied yet)
+    const scopeFiltered = this.getForContext(isGroup, null, chatId, isAdmin);
+    const scopeSet = new Set(scopeFiltered.map((t) => t.name));
+
+    if (!this.toolIndex) {
+      return this.applyLimit(scopeFiltered, toolLimit);
+    }
+
+    // Collect always-on tools
+    const selected = new Map<string, PiAiTool>();
+    for (const tool of scopeFiltered) {
+      if (this.toolIndex.isAlwaysIncluded(tool.name)) {
+        selected.set(tool.name, tool);
+      }
+    }
+
+    // Semantic search
+    try {
+      const results = await this.toolIndex.search(query, queryEmbedding);
+
+      // Add results that pass the scope filter
+      for (const result of results) {
+        if (scopeSet.has(result.name) && !selected.has(result.name)) {
+          const tool = scopeFiltered.find((t) => t.name === result.name);
+          if (tool) selected.set(result.name, tool);
+        }
+      }
+    } catch (error) {
+      console.warn("[tool-rag] Search failed, falling back to full tool set:", error);
+      return this.applyLimit(scopeFiltered, toolLimit);
+    }
+
+    // Fallback: if no results from search, send all scope-filtered
+    if (selected.size === 0) {
+      console.warn("[tool-rag] No tools matched query, sending all scope-filtered tools");
+      return this.applyLimit(scopeFiltered, toolLimit);
+    }
+
+    const result = Array.from(selected.values());
+    return this.applyLimit(result, toolLimit);
+  }
+
+  private applyLimit(tools: PiAiTool[], toolLimit: number | null): PiAiTool[] {
+    if (toolLimit !== null && tools.length > toolLimit) {
+      console.warn(
+        `⚠️ Provider tool limit: ${toolLimit}, selected: ${tools.length}. Truncating to ${toolLimit} tools.`
+      );
+      return tools.slice(0, toolLimit);
+    }
+    return tools;
   }
 }

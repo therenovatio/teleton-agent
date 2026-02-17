@@ -105,6 +105,8 @@ export class AdminHandler {
         return await this.handleStopCommand();
       case "verbose":
         return this.handleVerboseCommand();
+      case "rag":
+        return this.handleRagCommand(command);
       case "modules":
         return this.handleModulesCommand(command, isGroup ?? false);
       case "plugin":
@@ -279,6 +281,42 @@ export class AdminHandler {
     const next = !isVerbose();
     setVerbose(next);
     return next ? "🔊 Verbose logging **ON**" : "🔇 Verbose logging **OFF**";
+  }
+
+  private handleRagCommand(command: AdminCommand): string {
+    const cfg = this.agent.getConfig();
+    const sub = command.args[0]?.toLowerCase();
+
+    if (sub === "status") {
+      const enabled = cfg.tool_rag.enabled;
+      const topK = cfg.tool_rag.top_k;
+      const toolIndex = this.registry?.getToolIndex();
+      const indexed = toolIndex?.isIndexed ? "Yes" : "No";
+      const totalTools = this.registry?.count ?? 0;
+      return (
+        `🔍 **Tool RAG Status**\n\n` +
+        `Enabled: ${enabled ? "✅ ON" : "❌ OFF"}\n` +
+        `Indexed: ${indexed}\n` +
+        `Top-K: ${topK}\n` +
+        `Total tools: ${totalTools}\n` +
+        `Always include: ${cfg.tool_rag.always_include.length} patterns`
+      );
+    }
+
+    if (sub === "topk") {
+      const n = parseInt(command.args[1], 10);
+      if (isNaN(n) || n < 5 || n > 200) {
+        return `🔍 Current top_k: **${cfg.tool_rag.top_k}**\n\nUsage: /rag topk <5-200>`;
+      }
+      const old = cfg.tool_rag.top_k;
+      cfg.tool_rag.top_k = n;
+      return `🔍 Tool RAG top_k: **${old}** → **${n}**`;
+    }
+
+    // Toggle ON/OFF
+    const next = !cfg.tool_rag.enabled;
+    cfg.tool_rag.enabled = next;
+    return next ? "🔍 Tool RAG **ON**" : "🔇 Tool RAG **OFF**";
   }
 
   private handleModulesCommand(command: AdminCommand, isGroup: boolean): string {
@@ -509,6 +547,9 @@ Check TON wallet balance
 
 **/verbose**
 Toggle verbose debug logging
+
+**/rag** [status|topk <n>]
+Toggle Tool RAG or view status
 
 **/pause** / **/resume**
 Pause or resume the agent

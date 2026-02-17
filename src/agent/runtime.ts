@@ -40,6 +40,7 @@ import {
 import type {
   Context,
   Message as PiMessage,
+  Tool as PiAiTool,
   UserMessage,
   ToolResultMessage,
 } from "@mariozechner/pi-ai";
@@ -126,6 +127,7 @@ export class AgentRuntime {
   private compactionManager: CompactionManager;
   private contextBuilder: ContextBuilder | null = null;
   private toolRegistry: ToolRegistry | null = null;
+  private embedder: EmbeddingProvider | null = null;
 
   constructor(config: Config, soul?: string, toolRegistry?: ToolRegistry) {
     this.config = config;
@@ -150,6 +152,7 @@ export class AgentRuntime {
   }
 
   initializeContextBuilder(embedder: EmbeddingProvider, vectorEnabled: boolean): void {
+    this.embedder = embedder;
     const db = getDatabase().getDb();
     this.contextBuilder = new ContextBuilder(db, embedder, vectorEnabled);
   }
@@ -336,12 +339,37 @@ export class AgentRuntime {
       );
       const isAdmin =
         toolContext?.config?.telegram.admin_ids.includes(toolContext.senderId) ?? false;
-      const tools = this.toolRegistry?.getForContext(
-        isGroup ?? false,
-        providerMeta.toolLimit,
-        chatId,
-        isAdmin
-      );
+
+      let tools: PiAiTool[] | undefined;
+      const toolIndex = this.toolRegistry?.getToolIndex();
+      const useRAG =
+        toolIndex?.isIndexed &&
+        this.config.tool_rag?.enabled !== false &&
+        !isTrivialMessage(userMessage) &&
+        !(
+          providerMeta.toolLimit === null &&
+          this.config.tool_rag?.skip_unlimited_providers !== false
+        );
+
+      if (useRAG && this.toolRegistry && this.embedder) {
+        const queryEmbedding = await this.embedder.embedQuery(userMessage);
+        tools = await this.toolRegistry.getForContextWithRAG(
+          userMessage,
+          queryEmbedding,
+          isGroup ?? false,
+          providerMeta.toolLimit,
+          chatId,
+          isAdmin
+        );
+        console.log(`  🔍 Tool RAG: ${tools.length}/${this.toolRegistry.count} tools selected`);
+      } else {
+        tools = this.toolRegistry?.getForContext(
+          isGroup ?? false,
+          providerMeta.toolLimit,
+          chatId,
+          isAdmin
+        );
+      }
 
       const maxIterations = this.config.agent.max_agentic_iterations || 5;
       let iteration = 0;
@@ -350,6 +378,7 @@ export class AgentRuntime {
       let finalResponse: ChatResponse | null = null;
       const totalToolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
       const accumulatedTexts: string[] = [];
+      const accumulatedUsage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalCost: 0 };
 
       while (iteration < maxIterations) {
         iteration++;
@@ -423,6 +452,16 @@ export class AgentRuntime {
             console.error(`🚨 API error: ${errorMsg}`);
             throw new Error(`API error: ${errorMsg || "Unknown error"}`);
           }
+        }
+
+        // Accumulate usage across all iterations
+        const iterUsage = response.message.usage;
+        if (iterUsage) {
+          accumulatedUsage.input += iterUsage.input;
+          accumulatedUsage.output += iterUsage.output;
+          accumulatedUsage.cacheRead += iterUsage.cacheRead ?? 0;
+          accumulatedUsage.cacheWrite += iterUsage.cacheWrite ?? 0;
+          accumulatedUsage.totalCost += iterUsage.cost?.total ?? 0;
         }
 
         if (response.text) {
@@ -557,10 +596,15 @@ export class AgentRuntime {
         });
       }
 
-      const usage = response.message.usage;
-      if (usage) {
-        const inK = (usage.input / 1000).toFixed(1);
-        console.log(`  💰 ${inK}K in, ${usage.output} out | $${usage.cost.total.toFixed(3)}`);
+      if (accumulatedUsage.input > 0 || accumulatedUsage.output > 0) {
+        const u = accumulatedUsage;
+        const totalInput = u.input + u.cacheRead + u.cacheWrite;
+        const inK = (totalInput / 1000).toFixed(1);
+        const cacheParts: string[] = [];
+        if (u.cacheRead) cacheParts.push(`${(u.cacheRead / 1000).toFixed(1)}K cached`);
+        if (u.cacheWrite) cacheParts.push(`${(u.cacheWrite / 1000).toFixed(1)}K new`);
+        const cacheInfo = cacheParts.length > 0 ? ` (${cacheParts.join(", ")})` : "";
+        console.log(`  💰 ${inK}K in${cacheInfo}, ${u.output} out | $${u.totalCost.toFixed(3)}`);
       }
 
       let content = accumulatedTexts.join("\n").trim() || response.text;
@@ -574,7 +618,7 @@ export class AgentRuntime {
       } else if (!content && usedTelegramSendTool) {
         console.log("✅ Response sent via Telegram tool - no additional text needed");
         content = "";
-      } else if (!content && (!usage || (usage.input === 0 && usage.output === 0))) {
+      } else if (!content && accumulatedUsage.input === 0 && accumulatedUsage.output === 0) {
         console.warn("⚠️ Empty response with zero tokens - possible API issue");
         content = "I couldn't process your request. Please try again.";
       }

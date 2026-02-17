@@ -63,3 +63,13 @@ export const MASKING_KEEP_RECENT_COUNT = 10;
 
 // ─── Embedding Cache ────────────────────────────────────────────
 export const EMBEDDING_CACHE_EVICTION_RATIO = 0.1;
+
+// ─── Web Tools ─────────────────────────────────────────────────
+export const WEB_FETCH_MAX_TEXT_LENGTH = 20_000; // default text truncation
+export const WEB_SEARCH_MAX_RESULTS = 10; // max allowed count
+
+// ─── Tool RAG ──────────────────────────────────────────────────
+export const TOOL_RAG_DEFAULT_TOP_K = 25;
+export const TOOL_RAG_MIN_SCORE = 0.1;
+export const TOOL_RAG_VECTOR_WEIGHT = 0.6;
+export const TOOL_RAG_KEYWORD_WEIGHT = 0.4;
