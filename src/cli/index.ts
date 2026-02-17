@@ -1,6 +1,8 @@
 import { Command } from "commander";
 import { onboardCommand } from "./commands/onboard.js";
 import { doctorCommand } from "./commands/doctor.js";
+import { mcpAddCommand, mcpRemoveCommand, mcpListCommand } from "./commands/mcp.js";
+import { configCommand } from "./commands/config.js";
 import { main as startApp } from "../index.js";
 import { configExists, getDefaultConfigPath } from "../config/loader.js";
 import { readFileSync, existsSync } from "fs";
@@ -38,6 +40,7 @@ program
   .option("--phone <number>", "Phone number")
   .option("--api-key <key>", "Anthropic API key")
   .option("--user-id <id>", "Telegram User ID")
+  .option("--tavily-api-key <key>", "Tavily API key for web search")
   .action(async (options) => {
     try {
       await onboardCommand({
@@ -48,6 +51,7 @@ program
         phone: options.phone,
         apiKey: options.apiKey,
         userId: options.userId ? parseInt(options.userId) : undefined,
+        tavilyApiKey: options.tavilyApiKey,
       });
     } catch (error) {
       console.error("Error:", error instanceof Error ? error.message : String(error));
@@ -93,6 +97,76 @@ program
   .action(async () => {
     try {
       await doctorCommand();
+    } catch (error) {
+      console.error("Error:", error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// MCP server management
+const mcp = program.command("mcp").description("Manage MCP (Model Context Protocol) servers");
+
+mcp
+  .command("add <package> [args...]")
+  .description(
+    "Add an MCP server (e.g. teleton mcp add @modelcontextprotocol/server-filesystem /tmp)"
+  )
+  .option("-n, --name <name>", "Server name (auto-derived from package if omitted)")
+  .option("-s, --scope <scope>", "Tool scope: always | dm-only | group-only | admin-only", "always")
+  .option(
+    "-e, --env <KEY=VALUE...>",
+    "Environment variables (repeatable)",
+    (v: string, prev: string[]) => [...prev, v],
+    [] as string[]
+  )
+  .option("--url", "Treat <package> as an SSE/HTTP URL instead of an npx package")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (pkg: string, args: string[], options) => {
+    try {
+      await mcpAddCommand(pkg, args, options);
+    } catch (error) {
+      console.error("Error:", error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+mcp
+  .command("remove <name>")
+  .description("Remove an MCP server by name")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (name: string, options) => {
+    try {
+      await mcpRemoveCommand(name, options);
+    } catch (error) {
+      console.error("Error:", error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+mcp
+  .command("list")
+  .description("List configured MCP servers")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (options) => {
+    try {
+      await mcpListCommand(options);
+    } catch (error) {
+      console.error("Error:", error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  });
+
+// Config management
+program
+  .command("config")
+  .description("Manage configuration keys (set, get, list, unset)")
+  .argument("<action>", "set | get | list | unset")
+  .argument("[key]", "Config key (e.g., tavily_api_key, telegram.bot_token)")
+  .argument("[value]", "Value to set (prompts interactively if omitted)")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (action: string, key: string | undefined, value: string | undefined, options) => {
+    try {
+      await configCommand(action, key, value, options);
     } catch (error) {
       console.error("Error:", error instanceof Error ? error.message : String(error));
       process.exit(1);

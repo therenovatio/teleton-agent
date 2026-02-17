@@ -1,4 +1,4 @@
-import { loadConfig } from "./config/index.js";
+import { loadConfig, getDefaultConfigPath } from "./config/index.js";
 import { loadSoul } from "./soul/index.js";
 import { AgentRuntime } from "./agent/runtime.js";
 import { TelegramBridge, type TelegramMessage } from "./telegram/bridge.js";
@@ -21,6 +21,12 @@ import { ModulePermissions } from "./agent/tools/module-permissions.js";
 import { SHUTDOWN_TIMEOUT_MS } from "./constants/timeouts.js";
 import type { PluginModule, PluginContext } from "./agent/tools/types.js";
 import { PluginWatcher } from "./agent/tools/plugin-watcher.js";
+import {
+  loadMcpServers,
+  registerMcpTools,
+  closeMcpServers,
+  type McpConnection,
+} from "./agent/tools/mcp-loader.js";
 
 export class TeletonApp {
   private config;
@@ -37,9 +43,14 @@ export class TeletonApp {
   private sdkDeps: SDKDependencies;
   private webuiServer: any = null; // WebUIServer, imported lazily
   private pluginWatcher: PluginWatcher | null = null;
+  private mcpConnections: McpConnection[] = [];
+  private callbackHandlerRegistered = false;
+
+  private configPath: string;
 
   constructor(configPath?: string) {
-    this.config = loadConfig(configPath);
+    this.configPath = configPath ?? getDefaultConfigPath();
+    this.config = loadConfig(this.configPath);
 
     if (this.config.tonapi_key) {
       setTonapiKey(this.config.tonapi_key);
@@ -156,13 +167,51 @@ ${blue}  ┌──────────────────────�
       this.toolCount = this.toolRegistry.count;
     }
 
+    // Load MCP servers
+    const mcpServerNames: string[] = [];
+    if (Object.keys(this.config.mcp.servers).length > 0) {
+      this.mcpConnections = await loadMcpServers(this.config.mcp);
+      if (this.mcpConnections.length > 0) {
+        const mcp = await registerMcpTools(this.mcpConnections, this.toolRegistry);
+        if (mcp.count > 0) {
+          this.toolCount = this.toolRegistry.count;
+          mcpServerNames.push(...mcp.names);
+          console.log(
+            `🔌 MCP: ${mcp.count} tools from ${mcp.names.length} server(s) (${mcp.names.join(", ")})`
+          );
+        }
+      }
+    }
+
     // Initialize tool config from database
     this.toolRegistry.loadConfigFromDB(getDatabase().getDb());
+
+    // Initialize Tool RAG index
+    if (this.config.tool_rag.enabled) {
+      const { ToolIndex } = await import("./agent/tools/tool-index.js");
+      const toolIndex = new ToolIndex(
+        getDatabase().getDb(),
+        this.memory.embedder,
+        getDatabase().isVectorSearchReady(),
+        {
+          topK: this.config.tool_rag.top_k,
+          alwaysInclude: this.config.tool_rag.always_include,
+          skipUnlimitedProviders: this.config.tool_rag.skip_unlimited_providers,
+        }
+      );
+      toolIndex.ensureSchema();
+      this.toolRegistry.setToolIndex(toolIndex);
+
+      // Re-index callback for hot-reload plugins
+      this.toolRegistry.onToolsChanged(async (removed, added) => {
+        await toolIndex.reindexTools(removed, added);
+      });
+    }
 
     // Provider info and tool limit check
     const provider = (this.config.agent.provider || "anthropic") as SupportedProvider;
     const providerMeta = getProviderMetadata(provider);
-    const allNames = [...moduleNames, ...pluginNames];
+    const allNames = [...moduleNames, ...pluginNames, ...mcpServerNames];
     console.log(
       `🔌 ${this.toolCount} tools loaded (${allNames.join(", ")})${pluginToolCount > 0 ? ` — ${pluginToolCount} from plugins` : ""}`
     );
@@ -191,6 +240,14 @@ ${blue}  ┌──────────────────────�
     // Rebuild FTS indexes to ensure search works
     const db = getDatabase();
     const ftsResult = db.rebuildFtsIndexes();
+
+    // Index tools for Tool RAG
+    const toolIndex = this.toolRegistry.getToolIndex();
+    if (toolIndex) {
+      const t0 = Date.now();
+      const indexedCount = await toolIndex.indexAll(this.toolRegistry.getAll());
+      console.log(`🔍 Tool RAG: ${indexedCount} tools indexed (${Date.now() - t0}ms)`);
+    }
 
     // Initialize context builder for RAG search in agent
     this.agent.initializeContextBuilder(this.memory.embedder, db.isVectorSearchReady());
@@ -277,6 +334,26 @@ ${blue}  ┌──────────────────────�
     if (this.config.webui.enabled) {
       try {
         const { WebUIServer } = await import("./webui/server.js");
+        // Build MCP server info for WebUI
+        const mcpServers = Object.entries(this.config.mcp.servers).map(([name, serverConfig]) => {
+          const type = serverConfig.command ? ("stdio" as const) : ("sse" as const);
+          const target = serverConfig.command ?? serverConfig.url ?? "";
+          const connected = this.mcpConnections.some((c) => c.serverName === name);
+          const moduleName = `mcp_${name}`;
+          const moduleTools = this.toolRegistry.getModuleTools(moduleName);
+          return {
+            name,
+            type,
+            target,
+            scope: serverConfig.scope ?? "always",
+            enabled: serverConfig.enabled ?? true,
+            connected,
+            toolCount: moduleTools.length,
+            tools: moduleTools.map((t) => t.name),
+            envKeys: Object.keys(serverConfig.env ?? {}),
+          };
+        });
+
         this.webuiServer = new WebUIServer({
           agent: this.agent,
           bridge: this.bridge,
@@ -285,7 +362,17 @@ ${blue}  ┌──────────────────────�
           plugins: this.modules
             .filter((m) => this.toolRegistry.isPluginModule(m.name))
             .map((m) => ({ name: m.name, version: m.version ?? "0.0.0" })),
+          mcpServers,
           config: this.config.webui,
+          configPath: this.configPath,
+          marketplace: {
+            modules: this.modules,
+            config: this.config,
+            sdkDeps: this.sdkDeps,
+            pluginContext,
+            loadedModuleNames: builtinNames,
+            rewireHooks: () => this.wirePluginEventHooks(),
+          },
         });
         await this.webuiServer.start();
       } catch (error) {
@@ -557,35 +644,37 @@ ${blue}  ┌──────────────────────�
   }
 
   /**
-   * Collect plugin onMessage/onCallbackQuery hooks and register them
+   * Collect plugin onMessage/onCallbackQuery hooks and register them.
+   * Uses dynamic dispatch over this.modules so newly installed/uninstalled
+   * plugins are picked up without re-registering handlers.
    */
   private wirePluginEventHooks(): void {
-    const messageHooks: Array<
-      (e: import("@teleton-agent/sdk").PluginMessageEvent) => Promise<void>
-    > = [];
-    const callbackHooks: Array<{
-      pluginName: string;
-      hook: (e: import("@teleton-agent/sdk").PluginCallbackEvent) => Promise<void>;
-    }> = [];
+    // Message hooks: single dynamic dispatcher that iterates this.modules
+    this.messageHandler.setPluginMessageHooks([
+      async (event: import("@teleton-agent/sdk").PluginMessageEvent) => {
+        for (const mod of this.modules) {
+          const withHooks = mod as PluginModuleWithHooks;
+          if (withHooks.onMessage) {
+            try {
+              await withHooks.onMessage(event);
+            } catch (err) {
+              console.error(
+                `❌ [${mod.name}] onMessage error:`,
+                err instanceof Error ? err.message : err
+              );
+            }
+          }
+        }
+      },
+    ]);
 
-    for (const mod of this.modules) {
-      const withHooks = mod as PluginModuleWithHooks;
-      if (withHooks.onMessage) {
-        messageHooks.push(withHooks.onMessage);
-      }
-      if (withHooks.onCallbackQuery) {
-        callbackHooks.push({ pluginName: mod.name, hook: withHooks.onCallbackQuery });
-      }
+    const hookCount = this.modules.filter((m) => (m as PluginModuleWithHooks).onMessage).length;
+    if (hookCount > 0) {
+      console.log(`🔗 ${hookCount} plugin onMessage hook(s) registered`);
     }
 
-    // Pass message hooks to the handler
-    if (messageHooks.length > 0) {
-      this.messageHandler.setPluginMessageHooks(messageHooks);
-      console.log(`🔗 ${messageHooks.length} plugin onMessage hook(s) registered`);
-    }
-
-    // Register callback query handler if any plugins have onCallbackQuery
-    if (callbackHooks.length > 0) {
+    // Callback query handler: register ONCE, dispatch dynamically
+    if (!this.callbackHandlerRegistered) {
       this.bridge.getClient().addCallbackQueryHandler(async (update: any) => {
         const queryId = update.queryId;
         const data = update.data?.toString() || "";
@@ -622,18 +711,28 @@ ${blue}  ┌──────────────────────�
           answer,
         };
 
-        for (const { pluginName, hook } of callbackHooks) {
-          try {
-            await hook(event);
-          } catch (err) {
-            console.error(
-              `❌ [${pluginName}] onCallbackQuery error:`,
-              err instanceof Error ? err.message : err
-            );
+        for (const mod of this.modules) {
+          const withHooks = mod as PluginModuleWithHooks;
+          if (withHooks.onCallbackQuery) {
+            try {
+              await withHooks.onCallbackQuery(event);
+            } catch (err) {
+              console.error(
+                `❌ [${mod.name}] onCallbackQuery error:`,
+                err instanceof Error ? err.message : err
+              );
+            }
           }
         }
       });
-      console.log(`🔗 ${callbackHooks.length} plugin onCallbackQuery hook(s) registered`);
+      this.callbackHandlerRegistered = true;
+
+      const cbCount = this.modules.filter(
+        (m) => (m as PluginModuleWithHooks).onCallbackQuery
+      ).length;
+      if (cbCount > 0) {
+        console.log(`🔗 ${cbCount} plugin onCallbackQuery hook(s) registered`);
+      }
     }
   }
 
@@ -658,6 +757,15 @@ ${blue}  ┌──────────────────────�
         await this.pluginWatcher.stop();
       } catch (e) {
         console.error("⚠️ Plugin watcher stop failed:", e);
+      }
+    }
+
+    // Close MCP connections
+    if (this.mcpConnections.length > 0) {
+      try {
+        await closeMcpServers(this.mcpConnections);
+      } catch (e) {
+        console.error("⚠️ MCP close failed:", e);
       }
     }
 
