@@ -6,7 +6,7 @@ import {
   type ImageContent,
   type TextContent,
 } from "@mariozechner/pi-ai";
-import { getProviderModel } from "../../../client.js";
+import { getProviderModel, getEffectiveApiKey } from "../../../client.js";
 import { getProviderMetadata, type SupportedProvider } from "../../../../config/providers.js";
 import { readFileSync, existsSync } from "fs";
 import { extname } from "path";
@@ -100,8 +100,9 @@ export const visionAnalyzeExecutor: ToolExecutor<VisionAnalyzeParams> = async (
     }
 
     // Get API key from context
+    const currentProvider = context.config?.agent?.provider;
     const apiKey = context.config?.agent?.api_key;
-    if (!apiKey) {
+    if (!apiKey && currentProvider !== "local" && currentProvider !== "cocoon") {
       return {
         success: false,
         error: "No API key configured for vision analysis",
@@ -271,7 +272,7 @@ export const visionAnalyzeExecutor: ToolExecutor<VisionAnalyzeParams> = async (
 
     // Call LLM with the image
     const response = await completeSimple(model, visionContext, {
-      apiKey,
+      apiKey: currentProvider ? getEffectiveApiKey(currentProvider, apiKey || "") : apiKey,
       maxTokens: 1024,
     });
 

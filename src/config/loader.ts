@@ -101,6 +101,18 @@ export function loadConfig(configPath: string = DEFAULT_CONFIG_PATH): Config {
     }
   }
 
+  // Local LLM base URL override
+  if (process.env.TELETON_BASE_URL) {
+    try {
+      new URL(process.env.TELETON_BASE_URL);
+      config.agent.base_url = process.env.TELETON_BASE_URL;
+    } catch {
+      throw new Error(
+        `Invalid TELETON_BASE_URL: "${process.env.TELETON_BASE_URL}" is not a valid URL`
+      );
+    }
+  }
+
   // Optional API key overrides
   if (process.env.TELETON_TAVILY_API_KEY) {
     config.tavily_api_key = process.env.TELETON_TAVILY_API_KEY;

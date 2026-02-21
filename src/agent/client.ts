@@ -16,12 +16,20 @@ import { appendToTranscript, readTranscript } from "../session/transcript.js";
 import { getProviderMetadata, type SupportedProvider } from "../config/providers.js";
 import { sanitizeToolsForGemini } from "./schema-sanitizer.js";
 import { createLogger } from "../utils/logger.js";
+import { fetchWithTimeout } from "../utils/fetch.js";
 
 const log = createLogger("LLM");
 
 export function isOAuthToken(apiKey: string, provider?: string): boolean {
   if (provider && provider !== "anthropic") return false;
   return apiKey.startsWith("sk-ant-oat01-");
+}
+
+/** Resolve the effective API key for a provider (local/cocoon need no real key) */
+export function getEffectiveApiKey(provider: string, rawKey: string): string {
+  if (provider === "local") return "local";
+  if (provider === "cocoon") return "";
+  return rawKey;
 }
 
 const modelCache = new Map<string, Model<Api>>();
@@ -57,6 +65,56 @@ export async function registerCocoonModels(httpPort: number): Promise<string[]> 
           supportsStore: false,
           supportsDeveloperRole: false,
           supportsReasoningEffort: false,
+        },
+      };
+      ids.push(id);
+    }
+    return ids;
+  } catch {
+    return [];
+  }
+}
+
+const LOCAL_MODELS: Record<string, Model<"openai-completions">> = {};
+
+/** Register models discovered from a local OpenAI-compatible server */
+export async function registerLocalModels(baseUrl: string): Promise<string[]> {
+  try {
+    const parsed = new URL(baseUrl);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      log.warn(`Local LLM base_url must use http or https (got ${parsed.protocol})`);
+      return [];
+    }
+    const url = baseUrl.replace(/\/+$/, "");
+    const res = await fetchWithTimeout(`${url}/models`, { timeoutMs: 10_000 });
+    if (!res.ok) return [];
+    const body = (await res.json()) as {
+      data?: { id?: string; name?: string }[];
+      models?: { id?: string; name?: string }[];
+    };
+    const rawModels = body.data || body.models || [];
+    if (!Array.isArray(rawModels)) return [];
+    const models = rawModels.slice(0, 500);
+    const ids: string[] = [];
+    for (const m of models) {
+      const id = m.id || m.name || String(m);
+      LOCAL_MODELS[id] = {
+        id,
+        name: id,
+        api: "openai-completions",
+        provider: "local",
+        baseUrl: url,
+        reasoning: false,
+        input: ["text"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128000,
+        maxTokens: 4096,
+        compat: {
+          supportsStore: false,
+          supportsDeveloperRole: false,
+          supportsReasoningEffort: false,
+          supportsStrictMode: false,
+          maxTokensField: "max_tokens",
         },
       };
       ids.push(id);
@@ -112,6 +170,19 @@ export function getProviderModel(provider: SupportedProvider, modelId: string): 
       return model;
     }
     throw new Error("No Cocoon models available. Is the cocoon client running?");
+  }
+
+  if (meta.piAiProvider === "local") {
+    let model = LOCAL_MODELS[modelId];
+    if (!model) {
+      model = Object.values(LOCAL_MODELS)[0];
+      if (model) log.warn(`Local model "${modelId}" not found, using "${model.id}"`);
+    }
+    if (model) {
+      modelCache.set(cacheKey, model);
+      return model;
+    }
+    throw new Error("No local models available. Is the LLM server running?");
   }
 
   if (meta.piAiProvider === "moonshot") {
@@ -211,7 +282,7 @@ export async function chatWithContext(
   const temperature = provider === "moonshot" ? 1 : (options.temperature ?? config.temperature);
 
   const completeOptions: Record<string, unknown> = {
-    apiKey: isCocoon ? "" : config.api_key,
+    apiKey: getEffectiveApiKey(provider, config.api_key),
     maxTokens: options.maxTokens ?? config.max_tokens,
     temperature,
     sessionId: options.sessionId,

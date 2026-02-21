@@ -15,6 +15,7 @@ import {
   chatWithContext,
   loadContextFromTranscript,
   getProviderModel,
+  getEffectiveApiKey,
   type ChatResponse,
 } from "./client.js";
 import { getProviderMetadata, type SupportedProvider } from "../config/providers.js";
@@ -195,7 +196,7 @@ export class AgentRuntime {
               newSessionId: "pending",
               context: oldContext,
               chatId,
-              apiKey: this.config.agent.api_key,
+              apiKey: getEffectiveApiKey(this.config.agent.provider, this.config.agent.api_key),
               provider: this.config.agent.provider as SupportedProvider,
               utilityModel: this.config.agent.utility_model,
             });

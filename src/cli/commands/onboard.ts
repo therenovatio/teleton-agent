@@ -56,10 +56,13 @@ import ora from "ora";
 export interface OnboardOptions {
   workspace?: string;
   nonInteractive?: boolean;
+  ui?: boolean;
+  uiPort?: string;
   apiId?: number;
   apiHash?: string;
   phone?: string;
   apiKey?: string;
+  baseUrl?: string;
   userId?: number;
   provider?: SupportedProvider;
   tavilyApiKey?: string;
@@ -197,6 +200,34 @@ const MODEL_OPTIONS: Record<string, Array<{ value: string; name: string; descrip
  * Main onboard command
  */
 export async function onboardCommand(options: OnboardOptions = {}): Promise<void> {
+  // Web UI mode
+  if (options.ui) {
+    const { SetupServer } = await import("../../webui/setup-server.js");
+    const port = parseInt(options.uiPort || "7777") || 7777;
+    const server = new SetupServer(port);
+    await server.start();
+
+    process.on("SIGINT", async () => {
+      await server.stop();
+      process.exit(0);
+    });
+
+    // Wait for user to click "Start Agent" in the browser
+    await server.waitForLaunch();
+    console.log("\n  Launch signal received — stopping setup server");
+    await server.stop();
+
+    // Boot TonnetApp on the same port
+    console.log("  Starting TonnetApp...\n");
+    const { TeletonApp } = await import("../../index.js");
+    const configPath = join(TELETON_ROOT, "config.yaml");
+    const app = new TeletonApp(configPath);
+    await app.start();
+
+    // Keep process alive (TonnetApp manages its own lifecycle)
+    return;
+  }
+
   const prompter = createPrompter();
 
   try {
@@ -363,7 +394,8 @@ async function runInteractiveOnboarding(
     );
   }
 
-  // API key (or Cocoon setup)
+  // API key (or Cocoon / Local setup)
+  let localBaseUrl = "";
   if (selectedProvider === "cocoon") {
     // Cocoon Network — no API key, managed externally via cocoon-cli
     apiKey = "";
@@ -388,6 +420,34 @@ async function runInteractiveOnboarding(
     );
 
     STEPS[1].value = `${providerMeta.displayName}  ${DIM(`port ${cocoonInstance}`)}`;
+  } else if (selectedProvider === "local") {
+    // Local LLM — no API key, needs base URL
+    apiKey = "";
+
+    localBaseUrl = await input({
+      message: "Local LLM server URL",
+      default: "http://localhost:11434/v1",
+      theme,
+      validate: (value = "") => {
+        try {
+          new URL(value.trim());
+          return true;
+        } catch {
+          return "Must be a valid URL (e.g. http://localhost:11434/v1)";
+        }
+      },
+    });
+    localBaseUrl = localBaseUrl.trim();
+
+    noteBox(
+      "Local LLM — OpenAI-compatible server\n" +
+        "No API key needed. Models auto-discovered at startup.\n" +
+        `Teleton will connect to ${localBaseUrl}`,
+      "Local LLM",
+      TON
+    );
+
+    STEPS[1].value = `${providerMeta.displayName}  ${DIM(localBaseUrl)}`;
   } else {
     // Standard providers — API key required
     const envApiKey = process.env.TELETON_API_KEY;
@@ -507,7 +567,11 @@ async function runInteractiveOnboarding(
 
   selectedModel = providerMeta.defaultModel;
 
-  if (selectedFlow === "advanced" && selectedProvider !== "cocoon") {
+  if (
+    selectedFlow === "advanced" &&
+    selectedProvider !== "cocoon" &&
+    selectedProvider !== "local"
+  ) {
     const providerModels = MODEL_OPTIONS[selectedProvider] || [];
     const modelChoices = [
       ...providerModels,
@@ -843,6 +907,7 @@ async function runInteractiveOnboarding(
     agent: {
       provider: selectedProvider,
       api_key: apiKey,
+      ...(selectedProvider === "local" && localBaseUrl ? { base_url: localBaseUrl } : {}),
       model: selectedModel,
       max_tokens: 4096,
       temperature: 0.7,
@@ -986,10 +1051,18 @@ async function runNonInteractiveOnboarding(
   options: OnboardOptions,
   prompter: ReturnType<typeof createPrompter>
 ): Promise<void> {
-  if (!options.apiId || !options.apiHash || !options.phone || !options.apiKey || !options.userId) {
-    prompter.error(
-      "Non-interactive mode requires: --api-id, --api-hash, --phone, --api-key, --user-id"
-    );
+  const selectedProvider = options.provider || "anthropic";
+  const needsApiKey = selectedProvider !== "cocoon" && selectedProvider !== "local";
+  if (!options.apiId || !options.apiHash || !options.phone || !options.userId) {
+    prompter.error("Non-interactive mode requires: --api-id, --api-hash, --phone, --user-id");
+    process.exit(1);
+  }
+  if (needsApiKey && !options.apiKey) {
+    prompter.error(`Non-interactive mode requires --api-key for provider "${selectedProvider}"`);
+    process.exit(1);
+  }
+  if (selectedProvider === "local" && !options.baseUrl) {
+    prompter.error("Non-interactive mode requires --base-url for local provider");
     process.exit(1);
   }
 
@@ -998,7 +1071,6 @@ async function runNonInteractiveOnboarding(
     ensureTemplates: true,
   });
 
-  const selectedProvider = options.provider || "anthropic";
   const providerMeta = getProviderMetadata(selectedProvider);
 
   const config: Config = {
@@ -1009,7 +1081,8 @@ async function runNonInteractiveOnboarding(
     },
     agent: {
       provider: selectedProvider,
-      api_key: options.apiKey,
+      api_key: options.apiKey || "",
+      ...(options.baseUrl ? { base_url: options.baseUrl } : {}),
       model: providerMeta.defaultModel,
       max_tokens: 4096,
       temperature: 0.7,

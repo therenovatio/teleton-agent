@@ -142,6 +142,14 @@ async function checkApiKey(workspaceDir: string): Promise<CheckResult> {
       };
     }
 
+    if (provider === "cocoon" || provider === "local") {
+      return {
+        name: `${meta.displayName}`,
+        status: "ok",
+        message: "No API key needed",
+      };
+    }
+
     if (!apiKey) {
       return {
         name: `${meta.displayName} API key`,

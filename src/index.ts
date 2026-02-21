@@ -279,6 +279,33 @@ ${blue}  ┌──────────────────────�
       }
     }
 
+    // Local LLM — register models from OpenAI-compatible server
+    if (this.config.agent.provider === "local" && !this.config.agent.base_url) {
+      log.error("Local provider requires base_url in config (e.g. http://localhost:11434/v1)");
+      process.exit(1);
+    }
+    if (this.config.agent.provider === "local" && this.config.agent.base_url) {
+      try {
+        const { registerLocalModels } = await import("./agent/client.js");
+        const models = await registerLocalModels(this.config.agent.base_url);
+        if (models.length > 0) {
+          log.info(`Discovered ${models.length} local model(s): ${models.join(", ")}`);
+          if (!this.config.agent.model || this.config.agent.model === "auto") {
+            this.config.agent.model = models[0];
+            log.info(`Using local model: ${models[0]}`);
+          }
+        } else {
+          log.warn("No models found on local LLM server — is it running?");
+        }
+      } catch (err) {
+        log.error(
+          `Local LLM server unavailable at ${this.config.agent.base_url}: ${getErrorMessage(err)}`
+        );
+        log.error("Start the LLM server first (e.g. ollama serve)");
+        process.exit(1);
+      }
+    }
+
     // Connect to Telegram
     await this.bridge.connect();
 
