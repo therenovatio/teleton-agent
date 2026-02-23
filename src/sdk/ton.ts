@@ -25,6 +25,9 @@ import { sendTon } from "../ton/transfer.js";
 import { PAYMENT_TOLERANCE_RATIO } from "../constants/limits.js";
 import { withBlockchainRetry } from "../utils/retry.js";
 import { tonapiFetch } from "../constants/api-endpoints.js";
+import { toNano as tonToNano, fromNano as tonFromNano } from "@ton/ton";
+import { Address as TonAddress } from "@ton/core";
+import { withTxLock } from "../ton/tx-lock.js";
 
 const DEFAULT_MAX_AGE_MINUTES = 10;
 
@@ -397,28 +400,32 @@ export function createTonSDK(log: PluginLogger, db: Database.Database | null): T
           throw new PluginSDKError("Wallet key derivation failed", "OPERATION_FAILED");
         }
 
-        const wallet = WalletContractV5R1.create({
-          workchain: 0,
-          publicKey: keyPair.publicKey,
-        });
+        const seqno = await withTxLock(async () => {
+          const wallet = WalletContractV5R1.create({
+            workchain: 0,
+            publicKey: keyPair.publicKey,
+          });
 
-        const endpoint = await getCachedHttpEndpoint();
-        const client = new TonClient({ endpoint });
-        const walletContract = client.open(wallet);
-        const seqno = await walletContract.getSeqno();
+          const endpoint = await getCachedHttpEndpoint();
+          const client = new TonClient({ endpoint });
+          const walletContract = client.open(wallet);
+          const seq = await walletContract.getSeqno();
 
-        await walletContract.sendTransfer({
-          seqno,
-          secretKey: keyPair.secretKey,
-          sendMode: SendMode.PAY_GAS_SEPARATELY,
-          messages: [
-            internal({
-              to: Address.parse(senderJettonWallet),
-              value: toNano("0.05"),
-              body: messageBody,
-              bounce: true,
-            }),
-          ],
+          await walletContract.sendTransfer({
+            seqno: seq,
+            secretKey: keyPair.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            messages: [
+              internal({
+                to: Address.parse(senderJettonWallet),
+                value: toNano("0.05"),
+                body: messageBody,
+                bounce: true,
+              }),
+            ],
+          });
+
+          return seq;
         });
 
         return { success: true, seqno };
@@ -506,8 +513,7 @@ export function createTonSDK(log: PluginLogger, db: Database.Database | null): T
 
     toNano(amount: number | string): bigint {
       try {
-        const { toNano: convert } = require("@ton/ton");
-        return convert(String(amount));
+        return tonToNano(String(amount));
       } catch (err) {
         throw new PluginSDKError(
           `toNano conversion failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -517,14 +523,12 @@ export function createTonSDK(log: PluginLogger, db: Database.Database | null): T
     },
 
     fromNano(nano: bigint | string): string {
-      const { fromNano: convert } = require("@ton/ton");
-      return convert(nano);
+      return tonFromNano(nano);
     },
 
     validateAddress(address: string): boolean {
       try {
-        const { Address } = require("@ton/core");
-        Address.parse(address);
+        TonAddress.parse(address);
         return true;
       } catch {
         return false;
