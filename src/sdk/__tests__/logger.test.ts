@@ -45,7 +45,7 @@ describe("SDK Logger wrapper", () => {
   let sdk: PluginSDK;
 
   beforeEach(() => {
-    sdk = createPluginSDK(
+    ({ sdk } = createPluginSDK(
       { bridge: mockBridge },
       {
         pluginName: "logger-test",
@@ -53,7 +53,7 @@ describe("SDK Logger wrapper", () => {
         sanitizedConfig: {},
         pluginConfig: {},
       }
-    );
+    ));
   });
 
   describe("method existence", () => {

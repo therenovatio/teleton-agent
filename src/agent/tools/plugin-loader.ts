@@ -36,6 +36,7 @@ import {
   SDK_VERSION,
   semverSatisfies,
   type SDKDependencies,
+  CronManager,
 } from "../../sdk/index.js";
 import type { PluginSDK } from "../../sdk/types.js";
 import { createSecretsSDK } from "../../sdk/secrets.js";
@@ -173,6 +174,7 @@ export function adaptPlugin(
 
   const hasMigrate = typeof raw.migrate === "function";
   let pluginDb: Database.Database | null = null;
+  let cronManager: CronManager | null = null;
   const getDb = () => pluginDb;
   const withPluginDb = createDbWrapper(getDb, pluginName);
 
@@ -206,7 +208,7 @@ export function adaptPlugin(
               .all() as { name: string }[]
           )
             .map((t) => t.name)
-            .filter((n) => n !== "_kv"); // Exclude storage table
+            .filter((n) => n !== "_kv" && n !== "_cron_jobs"); // Exclude SDK tables
           if (pluginTables.length > 0) {
             migrateFromMainDb(pluginDb, pluginTables);
           }
@@ -228,12 +230,13 @@ export function adaptPlugin(
       try {
         let toolDefs: SimpleToolDef[];
         if (typeof raw.tools === "function") {
-          const sdk = createPluginSDK(sdkDeps, {
+          const { sdk, cronManager: cm } = createPluginSDK(sdkDeps, {
             pluginName,
             db: pluginDb,
             sanitizedConfig,
             pluginConfig,
           });
+          cronManager = cm;
           toolDefs = raw.tools(sdk);
         } else if (Array.isArray(raw.tools)) {
           toolDefs = raw.tools;
@@ -274,17 +277,18 @@ export function adaptPlugin(
     },
 
     async start(context) {
-      if (!raw.start) return;
-
       try {
-        const enhancedContext: EnhancedPluginContext = {
-          bridge: context.bridge,
-          db: pluginDb ?? null,
-          config: sanitizedConfig,
-          pluginConfig,
-          log: logFn,
-        };
-        await raw.start(enhancedContext);
+        if (raw.start) {
+          const enhancedContext: EnhancedPluginContext = {
+            bridge: context.bridge,
+            db: pluginDb ?? null,
+            config: sanitizedConfig,
+            pluginConfig,
+            log: logFn,
+          };
+          await raw.start(enhancedContext);
+        }
+        cronManager?._start();
       } catch (err) {
         pluginLog.error(`start() failed: ${err instanceof Error ? err.message : err}`);
       }
@@ -292,6 +296,7 @@ export function adaptPlugin(
 
     async stop() {
       try {
+        cronManager?._stopAll();
         await raw.stop?.();
       } catch (err) {
         pluginLog.error(`stop() failed: ${err instanceof Error ? err.message : err}`);

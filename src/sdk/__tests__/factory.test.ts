@@ -56,7 +56,7 @@ describe("createPluginSDK — factory integration", () => {
         sanitizedConfig: { foo: "bar" },
         pluginConfig: { secret_key: "s3cret" },
       }
-    );
+    ).sdk;
   }
 
   // ─── 1. All modules present ─────────────────────────────────

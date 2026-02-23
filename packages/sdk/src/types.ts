@@ -1039,6 +1039,79 @@ export interface StorageSDK {
   clear(): void;
 }
 
+// ─── Cron Types ─────────────────────────────────────────────────
+
+/** Options for registering a cron job */
+export interface CronJobOptions {
+  /** Interval in milliseconds (minimum 1000ms) */
+  every: number;
+  /** Fire immediately on start if a run was missed while offline (default: false) */
+  runMissed?: boolean;
+}
+
+/** Cron job state (read-only snapshot) */
+export interface CronJob {
+  /** Unique job identifier */
+  id: string;
+  /** Interval in milliseconds */
+  intervalMs: number;
+  /** Whether missed runs are fired on start */
+  runMissed: boolean;
+  /** Last successful or failed execution time (null if never run) */
+  lastRunAt: number | null;
+  /** Expected next execution time (null if stopped) */
+  nextRunAt: number | null;
+  /** Whether the timer is currently active */
+  running: boolean;
+}
+
+/**
+ * Interval-based job scheduler for plugins.
+ *
+ * Jobs are registered with a unique ID and an interval. The cron system
+ * persists `lastRunAt` in SQLite so missed runs can be detected across
+ * restarts.
+ *
+ * @example
+ * ```typescript
+ * sdk.cron.register("sync-prices", { every: 60_000, runMissed: true }, async () => {
+ *   const prices = await fetchPrices();
+ *   sdk.storage.set("prices", prices);
+ * });
+ * ```
+ */
+export interface CronSDK {
+  /**
+   * Register a periodic job.
+   *
+   * @param id — Unique job identifier (e.g. "sync-prices")
+   * @param opts — Interval and missed-run options
+   * @param callback — Async function to execute on each tick
+   */
+  register(id: string, opts: CronJobOptions, callback: () => Promise<void>): void;
+
+  /**
+   * Unregister and stop a job. Removes persisted state from DB.
+   *
+   * @param id — Job identifier
+   * @returns true if the job existed and was removed
+   */
+  unregister(id: string): boolean;
+
+  /**
+   * List all registered jobs.
+   */
+  list(): CronJob[];
+
+  /**
+   * Get a single job by ID.
+   *
+   * @param id — Job identifier
+   * @returns Job state, or undefined if not registered
+   */
+  get(id: string): CronJob | undefined;
+}
+
 // ─── Plugin Event Types ─────────────────────────────────────────
 
 /** Event passed to plugin onMessage hooks */
@@ -1221,6 +1294,9 @@ export interface PluginSDK {
 
   /** Simple key-value storage (null if no DB — use migrate() or storage auto-creates _kv table) */
   readonly storage: StorageSDK | null;
+
+  /** Interval-based job scheduler (null if no DB) */
+  readonly cron: CronSDK | null;
 
   /** Prefixed logger */
   readonly log: PluginLogger;
