@@ -1,4 +1,6 @@
-<h1 align="center">Teleton Agent</h1>
+<p align="center">
+  <img src="./logo_dark.png" alt="Teleton Agent" width="700" />
+</p>
 
 <p align="center"><b>Autonomous AI agent platform for Telegram with native TON blockchain integration</b></p>
 
