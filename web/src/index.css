@@ -497,13 +497,13 @@ button.btn-ghost:hover {
 }
 
 button.btn-danger {
-  background: var(--red-dim);
-  color: var(--red);
-  border: 1px solid rgba(255, 69, 58, 0.15);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--glass-border);
 }
 
 button.btn-danger:hover {
-  background: rgba(255, 69, 58, 0.2);
+  background: var(--surface-hover);
   opacity: 1;
 }
 
@@ -565,15 +565,15 @@ button.btn-sm {
 }
 
 .alert.success {
-  background: var(--green-dim);
-  color: var(--green);
-  border: 1px solid rgba(48, 209, 88, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .alert.error {
-  background: var(--red-dim);
-  color: var(--red);
-  border: 1px solid rgba(255, 69, 58, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ---- File rows (table rows in Workspace, Tasks) ---- */
